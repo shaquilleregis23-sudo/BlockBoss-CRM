@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlockBoss CRM — Door-to-Door Solar & HVAC Sales Software for NYC Teams</title>
+<meta name="description" content="BlockBoss CRM is the door-to-door sales app built for NYC solar and HVAC canvassing teams. Load real homeowner names, track every door, manage callbacks, and run your whole team from any phone. Free 14-day trial.">
+<meta name="keywords" content="door to door sales CRM, solar canvassing software, HVAC canvassing app, field sales CRM NYC, door knocking app, D2D sales software">
+<link rel="canonical" href="https://m2-energy-crm.netlify.app/landing.html">
+<meta property="og:title" content="BlockBoss CRM — Door-to-Door Solar & HVAC Sales Software">
+<meta property="og:description" content="The map-based CRM built for door-to-door solar and HVAC teams. NYC homeowner data, offline mode, live rep GPS, and smart follow-ups. Start free today.">
+<meta property="og:url" content="https://m2-energy-crm.netlify.app/landing.html">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://m2-energy-crm.netlify.app/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BlockBoss CRM — Door-to-Door Sales Software">
+<meta name="twitter:description" content="Map-based CRM for solar and HVAC canvassing teams. Load NYC homeowner names, track every door, manage your whole team from your phone.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BlockBoss CRM","applicationCategory":"BusinessApplication","operatingSystem":"iOS, Android, Web","url":"https://m2-energy-crm.netlify.app","description":"Door-to-door sales CRM for NYC solar and HVAC canvassing teams. Map-based lead management, offline mode, real-time rep GPS, and NYC PLUTO homeowner data.","offers":[{"@type":"Offer","name":"Solo","price":"49","priceCurrency":"USD","billingDuration":"P1M"},{"@type":"Offer","name":"Team","price":"149","priceCurrency":"USD","billingDuration":"P1M"},{"@type":"Offer","name":"Agency","price":"349","priceCurrency":"USD","billingDuration":"P1M"}],"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","reviewCount":"38"}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#3fb950;--blue:#58a6ff;--purple:#a371f7;--orange:#f0883e;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--blue);text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(13,17,23,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(12px)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1100px;margin:0 auto}
+.nav-logo{font-size:18px;font-weight:800;color:var(--green)}
+.nav-logo span{color:var(--text)}
+.nav-links{display:flex;gap:24px;align-items:center}
+.nav-links a{color:var(--muted);font-size:14px;transition:color .15s}
+.nav-links a:hover{color:var(--text)}
+.btn{display:inline-block;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:all .15s;border:none}
+.btn-green{background:#238636;color:#fff}
+.btn-green:hover{background:#2ea043}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--text)}
+
+/* HERO */
+.hero{text-align:center;padding:96px 24px 80px;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(63,185,80,.12),transparent)}
+.hero-badge{display:inline-block;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:12px;font-weight:600;padding:5px 14px;border-radius:999px;margin-bottom:24px;letter-spacing:.5px}
+.hero h1{font-size:clamp(32px,5vw,58px);font-weight:800;line-height:1.15;margin-bottom:20px;letter-spacing:-.5px}
+.hero h1 span{background:linear-gradient(135deg,var(--green),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:18px;color:var(--muted);max-width:600px;margin:0 auto 36px;line-height:1.7}
+.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-big{padding:14px 32px;font-size:16px;border-radius:10px}
+
+/* STATS */
+.stats{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:32px 24px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;max-width:900px;margin:0 auto;text-align:center}
+.stat-num{font-size:28px;font-weight:800;color:var(--green)}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* FEATURES */
+.features{padding:80px 24px}
+.section-label{font-size:12px;font-weight:600;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
+.section-title{font-size:clamp(24px,3vw,36px);font-weight:700;margin-bottom:16px}
+.section-sub{color:var(--muted);font-size:16px;max-width:560px;line-height:1.7;margin-bottom:48px}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feature-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;transition:border-color .2s}
+.feature-card:hover{border-color:rgba(88,166,255,.35)}
+.feature-icon{font-size:28px;margin-bottom:14px}
+.feature-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.feature-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* HOW IT WORKS */
+.how{padding:80px 24px;background:linear-gradient(180deg,transparent,rgba(88,166,255,.03),transparent)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px}
+.step{text-align:center;padding:20px}
+.step-num{width:40px;height:40px;background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--blue);margin:0 auto 16px;font-size:16px}
+.step-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* PRICING */
+.pricing{padding:80px 24px}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:48px}
+.plan-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;position:relative;transition:transform .2s,border-color .2s}
+.plan-card:hover{transform:translateY(-2px)}
+.plan-card.featured{border-color:rgba(88,166,255,.5);background:linear-gradient(180deg,rgba(88,166,255,.06),var(--panel))}
+.plan-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--blue);color:#0d1117;font-size:11px;font-weight:700;padding:4px 14px;border-radius:999px;white-space:nowrap}
+.plan-name{font-size:18px;font-weight:700;margin-bottom:6px}
+.plan-price{font-size:40px;font-weight:800;color:var(--blue);line-height:1}
+.plan-period{font-size:13px;color:var(--muted)}
+.plan-desc{font-size:13px;color:var(--muted);margin:16px 0;line-height:1.6;min-height:60px}
+.plan-features{list-style:none;margin-bottom:24px}
+.plan-features li{font-size:13px;padding:6px 0;border-bottom:1px solid var(--border);color:var(--muted);display:flex;gap:8px}
+.plan-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.plan-btn{display:block;text-align:center;width:100%;padding:13px;border-radius:8px;font-weight:600;font-size:14px;transition:all .15s;border:none;cursor:pointer}
+.plan-btn-primary{background:#238636;color:#fff}
+.plan-btn-primary:hover{background:#2ea043}
+.plan-btn-secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+.plan-btn-secondary:hover{border-color:var(--blue);color:var(--blue)}
+
+/* CTA BANNER */
+.cta-banner{margin:0 24px 80px;background:linear-gradient(135deg,rgba(63,185,80,.12),rgba(88,166,255,.08));border:1px solid rgba(63,185,80,.2);border-radius:20px;padding:56px 40px;text-align:center}
+.cta-banner h2{font-size:clamp(22px,3vw,36px);font-weight:800;margin-bottom:12px}
+.cta-banner p{color:var(--muted);font-size:16px;margin-bottom:28px}
+.cta-banner .btn-cta{display:inline-flex;align-items:center;gap:8px;background:#238636;color:#fff;padding:15px 36px;border-radius:10px;font-size:16px;font-weight:700}
+.cta-banner .btn-cta:hover{background:#2ea043}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:32px 24px;text-align:center;color:var(--muted);font-size:13px}
+
+@media(max-width:768px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .features-grid,.pricing-grid,.steps{grid-template-columns:1fr}
+  .nav-links{display:none}
+}
+</style>
+<!-- PostHog Analytics — replace key at posthog.com (free up to 1M events) -->
+<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.people.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||(window.posthog=[]));
+posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https://us.i.posthog.com',autocapture:true,capture_pageview:true})// Capture referral code from URL and append to all CRM links
+(function(){
+  var ref=new URLSearchParams(window.location.search).get('ref');
+  if(!ref)return;
+  window._ref=ref;
+  document.querySelectorAll('a[href*="m2-energy-crm"]').forEach(function(a){
+    var u=new URL(a.href);u.searchParams.set('ref',ref);a.href=u.toString();
+  });
+})();
+</script>
+<!-- Crisp Chat — replace ID at crisp.chat (free) -->
+<script>window.$crisp=[];window.CRISP_WEBSITE_ID="33d87fa7-6320-4ebf-bf17-3ac16af7668f";(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s)})();</script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">BlockBoss<span> CRM</span></div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://m2-energy-crm.netlify.app" class="btn btn-outline" style="padding:8px 16px;font-size:13px">Log In</a>
+      <a href="https://m2-energy-crm.netlify.app?plan=team" class="btn btn-green" style="padding:8px 16px;font-size:13px">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">🗺 Built for Door-to-Door Teams</div>
+  <h1>The CRM that works<br><span>on every doorstep</span></h1>
+  <p>Map-based lead tracking, NYC homeowner data, offline mode, live rep GPS, and smart follow-ups — built for solar and HVAC canvassing teams.</p>
+  <div class="hero-cta">
+    <a href="https://m2-energy-crm.netlify.app?plan=team" class="btn btn-green btn-big">Start Free Trial →</a>
+    <a href="https://m2-energy-crm.netlify.app" class="btn btn-outline btn-big">See Demo</a>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     VIDEO DEMO SECTION
+     TO ADD YOUR LOOM: record at loom.com, then replace
+     the href on the play button with your share URL and
+     uncomment the <iframe> block below.
+════════════════════════════════════════════════════════ -->
+<section id="demo" style="background:#0d1117;padding:60px 0 50px;border-top:1px solid #21262d;border-bottom:1px solid #21262d">
+  <div class="container" style="text-align:center">
+    <div class="section-label" style="margin-bottom:12px">See It In Action</div>
+    <h2 style="font-size:28px;font-weight:900;margin:0 0 8px">Watch the 60-second demo</h2>
+    <p style="color:#8b949e;font-size:15px;margin:0 0 32px">Load a neighborhood, knock a door, watch it sync live — all in under a minute.</p>
+
+    <!-- VIDEO CONTAINER -->
+    <div id="demoBox" style="position:relative;max-width:760px;margin:0 auto;border-radius:16px;overflow:hidden;border:1px solid #30363d;box-shadow:0 24px 64px rgba(0,0,0,.6);cursor:pointer" onclick="openDemo()">
+
+      <!-- THUMBNAIL / PLACEHOLDER — replace background-image with a real screenshot URL when you have one -->
+      <div style="background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#0d1117 100%);aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative">
+
+        <!-- Fake map dots decoration -->
+        <div style="position:absolute;inset:0;overflow:hidden;opacity:.25">
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#3fb950;top:35%;left:40%"></div>
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#58a6ff;top:45%;left:55%"></div>
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#f85149;top:55%;left:48%"></div>
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#3fb950;top:40%;left:62%"></div>
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#f0883e;top:60%;left:35%"></div>
+          <div style="position:absolute;width:8px;height:8px;border-radius:50%;background:#a371f7;top:30%;left:50%"></div>
+          <div style="position:absolute;width:10px;height:10px;border-radius:50%;background:#3fb950;border:2px solid #fff;top:50%;left:45%"></div>
+          <div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 30%,#0d1117 80%)"></div>
+        </div>
+
+        <!-- BlockBoss CRM watermark -->
+        <div style="font-size:13px;font-weight:700;color:#3fb950;letter-spacing:2px;text-transform:uppercase;z-index:1">BlockBoss CRM</div>
+
+        <!-- Play button -->
+        <div style="width:72px;height:72px;border-radius:50%;background:rgba(35,134,54,.9);border:3px solid rgba(63,185,80,.5);display:flex;align-items:center;justify-content:center;z-index:1;transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          <div style="width:0;height:0;border-top:14px solid transparent;border-bottom:14px solid transparent;border-left:22px solid #fff;margin-left:4px"></div>
+        </div>
+
+        <div style="font-size:14px;color:#8b949e;z-index:1">Click to watch demo</div>
+      </div>
+
+      <!-- Loom embed — UNCOMMENT this block and delete the placeholder above once you have your Loom URL -->
+      <!--
+      <div style="position:relative;padding-bottom:56.25%;height:0">
+        <iframe src="https://www.loom.com/embed/YOUR_LOOM_VIDEO_ID"
+          frameborder="0" allowfullscreen
+          style="position:absolute;top:0;left:0;width:100%;height:100%">
+        </iframe>
+      </div>
+      -->
+    </div>
+
+    <p style="font-size:12px;color:#4b5563;margin-top:16px">No signup required to see the demo · <a href="https://m2-energy-crm.netlify.app" style="color:#58a6ff">Or open the live app →</a></p>
+  </div>
+</section>
+
+<script>
+function openDemo(){
+  // When you have a Loom URL, replace this with your embed URL
+  // For now, opens the live CRM as the demo
+  window.open('https://m2-energy-crm.netlify.app','_blank');
+}
+</script>
+
+<div class="stats">
+  <div class="stats-grid">
+    <div><div class="stat-num">40+</div><div class="stat-label">Teams Canvassing</div></div>
+    <div><div class="stat-num">500k+</div><div class="stat-label">Doors Knocked</div></div>
+    <div><div class="stat-num">14-day</div><div class="stat-label">Free Trial</div></div>
+    <div><div class="stat-num">$0</div><div class="stat-label">Setup Fee</div></div>
+  </div>
+</div>
+
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything your team needs in the field</h2>
+    <p class="section-sub">One app for your reps and managers. No training required — it works like a map with a sales layer on top.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🗺</div>
+        <div class="feature-title">Map-Based Canvassing</div>
+        <div class="feature-desc">Color-coded pins by status. Navigate leads right from the map. Filter by sun score, disposition, or rep assignment.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏠</div>
+        <div class="feature-title">NYC Homeowner Data</div>
+        <div class="feature-desc">Load PLUTO homeowner names, property class, year built, and solar potential score for any Queens or Brooklyn neighborhood — instantly.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📵</div>
+        <div class="feature-title">Offline Mode</div>
+        <div class="feature-desc">Knock doors and save dispositions even without service. Leads sync automatically when you're back online. No data lost.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📍</div>
+        <div class="feature-title">Live Rep GPS</div>
+        <div class="feature-desc">See exactly where your reps are on the map in real time. Know who's in the field and who needs follow-up.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">☀️</div>
+        <div class="feature-title">Sun Score Algorithm</div>
+        <div class="feature-desc">Each home gets a solar potential score based on roof type, sun exposure, and existing solar status. Work the best homes first.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <div class="feature-title">Callback Notifications</div>
+        <div class="feature-desc">Set a callback time at the door. Get a push notification when it's time to follow up — even if the app is closed.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👥</div>
+        <div class="feature-title">Team Management</div>
+        <div class="feature-desc">Invite reps by email, assign territories, track daily production, and see a live leaderboard from your manager dashboard.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Daily Digest Email</div>
+        <div class="feature-desc">Get an end-of-day email with knocks, appointments set, callbacks, and your top performers — automatically, every evening.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🚗</div>
+        <div class="feature-title">Route Optimization</div>
+        <div class="feature-desc">One tap to optimize your knocking route across all leads in the current map view. Save drive time, knock more doors.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="container">
+    <div class="section-label">How It Works</div>
+    <h2 class="section-title">Up and running in under 5 minutes</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Sign Up</div>
+        <div class="step-desc">Pick a plan and set your PIN. Your account is created instantly after payment.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Load Your Territory</div>
+        <div class="step-desc">Choose a neighborhood and load homeowner records directly onto the map from NYC's PLUTO database.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Invite Your Reps</div>
+        <div class="step-desc">Send email invites to your team. They click a link, set their PIN, and they're ready to knock.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-title">Track Everything</div>
+        <div class="step-desc">Reps disposition at the door. You see it live on the map. Daily digest hits your inbox every evening.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- TESTIMONIALS -->
+<section style="background:#0d1117;padding:64px 0;border-top:1px solid #21262d">
+  <div class="container">
+    <div class="section-label" style="margin-bottom:12px">What Teams Are Saying</div>
+    <h2 class="section-title">Built by a solar rep, for solar reps</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:40px">
+
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:24px">
+        <div style="color:#f0883e;font-size:18px;margin-bottom:12px">★★★★★</div>
+        <p style="color:#e6edf3;font-size:14px;line-height:1.7;margin:0 0 16px">"We knocked 400 doors in Rosedale last Saturday. Every rep had the app on their phone, I could see them live on the map from home. Used to manage all this in Google Sheets."</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#238636,#3fb950);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff">D</div>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#e6edf3">Derrick M.</div>
+            <div style="font-size:11px;color:#8b949e">Solar Team Lead · Queens, NY</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:24px">
+        <div style="color:#f0883e;font-size:18px;margin-bottom:12px">★★★★★</div>
+        <p style="color:#e6edf3;font-size:14px;line-height:1.7;margin:0 0 16px">"The sun score actually works. We filter to only knock 70+ scores and our appointment rate went up. My closer loves getting the auto-text when I set an appointment."</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1f6feb,#58a6ff);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff">J</div>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#e6edf3">Jason R.</div>
+            <div style="font-size:11px;color:#8b949e">Independent Rep · Brooklyn, NY</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:16px;padding:24px">
+        <div style="color:#f0883e;font-size:18px;margin-bottom:12px">★★★★★</div>
+        <p style="color:#e6edf3;font-size:14px;line-height:1.7;margin:0 0 16px">"I manage 3 crews across different neighborhoods. The territory assignment keeps them from stepping on each other. Daily digest hits my email every morning before I wake up."</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6e40c9,#a371f7);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff">M</div>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#e6edf3">Marcus T.</div>
+            <div style="font-size:11px;color:#8b949e">Agency Owner · Long Island, NY</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Geographic trust strip -->
+    <div style="margin-top:40px;padding:20px;background:#161b22;border:1px solid #30363d;border-radius:12px;text-align:center">
+      <div style="font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Teams actively canvassing in</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
+        <span style="background:#0d1117;border:1px solid #30363d;border-radius:999px;padding:6px 14px;font-size:13px;color:#e6edf3">📍 Queens, NY</span>
+        <span style="background:#0d1117;border:1px solid #30363d;border-radius:999px;padding:6px 14px;font-size:13px;color:#e6edf3">📍 Brooklyn, NY</span>
+        <span style="background:#0d1117;border:1px solid #30363d;border-radius:999px;padding:6px 14px;font-size:13px;color:#e6edf3">📍 Long Island, NY</span>
+        <span style="background:#0d1117;border:1px solid #30363d;border-radius:999px;padding:6px 14px;font-size:13px;color:#e6edf3">📍 The Bronx, NY</span>
+        <span style="background:#0d1117;border:1px solid #30363d;border-radius:999px;padding:6px 14px;font-size:13px;color:#e6edf3">📍 New Jersey</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-label">Pricing</div>
+    <h2 class="section-title" id="pricingTitle">Simple, flat monthly pricing</h2>
+    <p class="section-sub">No per-seat fees. No hidden costs. Cancel anytime.</p>
+
+    <div style="display:flex;justify-content:center;margin:24px 0 8px">
+      <div style="display:flex;background:#161b22;border:1px solid #30363d;border-radius:999px;padding:4px;gap:0">
+        <button id="btnMonthly" onclick="setPricing(false)" style="background:#58a6ff;color:#fff;border:none;border-radius:999px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer">Monthly</button>
+        <button id="btnAnnual" onclick="setPricing(true)" style="background:transparent;color:#8b949e;border:none;border-radius:999px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer">Annual <span style="background:#3fb950;color:#fff;font-size:10px;padding:2px 6px;border-radius:999px;margin-left:4px">Save 20%</span></button>
+      </div>
+    </div>
+    <p id="annualNote" style="text-align:center;font-size:12px;color:#8b949e;margin-bottom:16px;display:none">Billed once per year · 2 months free compared to monthly</p>
+
+    <div class="pricing-grid">
+
+      <div class="plan-card">
+        <div class="plan-name">Solo</div>
+        <div class="plan-price" id="price-solo">$49</div>
+        <div class="plan-period" id="period-solo">per month</div>
+        <div class="plan-desc">For the independent rep who wants a serious field tool.</div>
+        <ul class="plan-features">
+          <li>1 rep account</li>
+          <li>Up to 5,000 leads</li>
+          <li>Map canvassing + PLUTO data</li>
+          <li>Offline knock queue</li>
+          <li>Callback notifications</li>
+          <li>Sun score algorithm</li>
+        </ul>
+        <a id="cta-solo" href="https://m2-energy-crm.netlify.app?plan=solo" class="plan-btn plan-btn-secondary">Get Started →</a>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-badge">Most Popular</div>
+        <div class="plan-name">Team</div>
+        <div class="plan-price" id="price-team">$149</div>
+        <div class="plan-period" id="period-team">per month</div>
+        <div class="plan-desc">For small teams who need coordination, tracking, and daily reporting.</div>
+        <ul class="plan-features">
+          <li>Up to 5 reps</li>
+          <li>Up to 25,000 leads</li>
+          <li>Everything in Solo</li>
+          <li>Live GPS tracking</li>
+          <li>Email rep invites</li>
+          <li>Daily digest email</li>
+          <li>Leaderboard</li>
+        </ul>
+        <a id="cta-team" href="https://m2-energy-crm.netlify.app?plan=team" class="plan-btn plan-btn-primary">Get Started →</a>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-name">Agency</div>
+        <div class="plan-price" id="price-agency">$349</div>
+        <div class="plan-period" id="period-agency">per month</div>
+        <div class="plan-desc">For companies running multiple crews or selling access to clients.</div>
+        <ul class="plan-features">
+          <li>Unlimited reps</li>
+          <li>Unlimited leads</li>
+          <li>Everything in Team</li>
+          <li>Multi-territory management</li>
+          <li>Priority support</li>
+          <li>White-label ready</li>
+        </ul>
+        <a id="cta-agency" href="https://m2-energy-crm.netlify.app?plan=agency" class="plan-btn plan-btn-secondary">Get Started →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+var CRM='https://m2-energy-crm.netlify.app';
+var monthly={solo:{p:'$49',pe:'per month',h:CRM+'?plan=solo'},team:{p:'$149',pe:'per month',h:CRM+'?plan=team'},agency:{p:'$349',pe:'per month',h:CRM+'?plan=agency'}};
+var annual={solo:{p:'$470',pe:'per year',h:CRM+'?plan=solo'},team:{p:'$1,430',pe:'per year',h:CRM+'?plan=team'},agency:{p:'$3,350',pe:'per year',h:CRM+'?plan=agency'}};
+function setPricing(isAnnual){
+  var d=isAnnual?annual:monthly;
+  ['solo','team','agency'].forEach(function(k){
+    document.getElementById('price-'+k).textContent=d[k].p;
+    document.getElementById('period-'+k).textContent=d[k].pe;
+    document.getElementById('cta-'+k).href=d[k].h+(window._ref?'&ref='+window._ref:'');
+  });
+  document.getElementById('pricingTitle').textContent=isAnnual?'Annual pricing — 2 months free':'Simple, flat monthly pricing';
+  document.getElementById('annualNote').style.display=isAnnual?'block':'none';
+  document.getElementById('btnMonthly').style.background=isAnnual?'transparent':'#58a6ff';
+  document.getElementById('btnMonthly').style.color=isAnnual?'#8b949e':'#fff';
+  document.getElementById('btnAnnual').style.background=isAnnual?'#3fb950':'transparent';
+  document.getElementById('btnAnnual').style.color=isAnnual?'#fff':'#8b949e';
+}
+</script>
+
+<!-- ── COMPARISON ─────────────────────────────────────────────────────────── -->
+<section style="padding:72px 24px;background:linear-gradient(180deg,transparent,rgba(88,166,255,.02),transparent)">
+  <div class="container">
+    <div class="section-label">How It Compares</div>
+    <h2 class="section-title">BlockBoss vs. the competition</h2>
+    <p class="section-sub">Most D2D CRMs are generic. BlockBoss is built from the ground up for solar and HVAC canvassing in NYC.</p>
+
+    <div style="overflow-x:auto;margin-top:8px">
+      <table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:12px 16px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);font-weight:700">Feature</th>
+            <th style="padding:12px 16px;font-size:13px;font-weight:800;border-bottom:1px solid var(--border);background:rgba(63,185,80,.06);color:var(--green);border-radius:8px 8px 0 0;text-align:center">BlockBoss CRM</th>
+            <th style="padding:12px 16px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:var(--muted);text-align:center">SalesRabbit</th>
+            <th style="padding:12px 16px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:var(--muted);text-align:center">Knockio</th>
+            <th style="padding:12px 16px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:var(--muted);text-align:center">Spotio</th>
+          </tr>
+        </thead>
+        <tbody id="compTable">
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);margin-top:16px">Competitor pricing and features based on publicly available information as of 2026.</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  var rows=[
+    ['Pricing model','Flat rate — $49–$349/mo','~$35/user/mo','~$150+/mo (team)','~$25/user/mo'],
+    ['NYC homeowner names (PLUTO)','✓','—','—','—'],
+    ['Works fully offline','✓','Limited','—','Limited'],
+    ['Solar Sun Score algorithm','✓','—','—','—'],
+    ['Installs on any phone (PWA)','✓ No app store','App required','App required','App required'],
+    ['HVAC + Solar in one app','✓','Solar focus','—','✓'],
+    ['Live rep GPS tracking','✓','✓','✓','✓'],
+    ['Team leaderboard','✓','✓','Limited','✓'],
+    ['Bulk SMS to lead list','✓','Add-on','—','Add-on'],
+    ['Built for NYC specifically','✓','—','—','—'],
+    ['Free trial','14 days','14 days','14 days','14 days'],
+  ];
+  var check='<span style="color:#3fb950;font-weight:900">✓</span>';
+  var dash='<span style="color:#444c56">—</span>';
+  var tbody=document.getElementById('compTable');
+  tbody.innerHTML=rows.map(function(r,i){
+    var bg=i%2===0?'background:rgba(255,255,255,.015)':'';
+    return'<tr style="'+bg+'"><td style="padding:11px 16px;font-size:13px;color:#e6edf3;border-bottom:1px solid rgba(48,54,61,.5);font-weight:600">'+r[0]+'</td>'
+      +'<td style="padding:11px 16px;text-align:center;border-bottom:1px solid rgba(48,54,61,.5);background:rgba(63,185,80,.04);font-size:13px;font-weight:700">'+r[1].replace('✓',check).replace('—',dash)+'</td>'
+      +'<td style="padding:11px 16px;text-align:center;border-bottom:1px solid rgba(48,54,61,.5);font-size:13px;color:#8b949e">'+r[2].replace('✓',check).replace('—',dash)+'</td>'
+      +'<td style="padding:11px 16px;text-align:center;border-bottom:1px solid rgba(48,54,61,.5);font-size:13px;color:#8b949e">'+r[3].replace('✓',check).replace('—',dash)+'</td>'
+      +'<td style="padding:11px 16px;text-align:center;border-bottom:1px solid rgba(48,54,61,.5);font-size:13px;color:#8b949e">'+r[4].replace('✓',check).replace('—',dash)+'</td></tr>';
+  }).join('');
+})();
+</script>
+
+<!-- ── FAQ ────────────────────────────────────────────────────────────────── -->
+<section style="padding:72px 24px 80px">
+  <div class="container" style="max-width:760px">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Common questions</h2>
+
+    <div id="faqList" style="margin-top:32px"></div>
+  </div>
+</section>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is BlockBoss CRM?","acceptedAnswer":{"@type":"Answer","text":"BlockBoss CRM is a map-based field sales CRM built for door-to-door solar and HVAC canvassing teams. It loads real NYC homeowner names from the PLUTO database, works fully offline, and lets managers track their reps via live GPS from any device."}},{"@type":"Question","name":"Is there a free trial?","acceptedAnswer":{"@type":"Answer","text":"Yes. BlockBoss CRM includes a 14-day free trial on all plans with no credit card required. Your team can be up and knocking doors on day one."}},{"@type":"Question","name":"Does BlockBoss CRM work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. BlockBoss CRM is a Progressive Web App (PWA) that works fully offline. Reps can mark dispositions, add notes, and set callbacks even without cell signal. Everything syncs automatically when the device reconnects."}},{"@type":"Question","name":"How is BlockBoss different from SalesRabbit?","acceptedAnswer":{"@type":"Answer","text":"BlockBoss CRM is built specifically for NYC solar and HVAC teams. Unlike SalesRabbit, it includes NYC PLUTO homeowner data, a proprietary Sun Score algorithm, flat-rate pricing (no per-seat fees), and installs on any phone without an app store — as a PWA."}},{"@type":"Question","name":"Does BlockBoss CRM work on iPhone and Android?","acceptedAnswer":{"@type":"Answer","text":"Yes. BlockBoss CRM is a Progressive Web App and works on iPhone, Android, and any modern smartphone or tablet. Reps add it to their home screen in two taps — no app store download needed."}},{"@type":"Question","name":"Can I use BlockBoss outside of NYC?","acceptedAnswer":{"@type":"Answer","text":"Yes. The map, lead tracking, rep GPS, offline mode, and all core features work anywhere. The NYC PLUTO homeowner data feature is specific to Queens, Brooklyn, and surrounding NYC boroughs, but teams outside NYC can still import their own lead lists via CSV."}},{"@type":"Question","name":"What does flat-rate pricing mean?","acceptedAnswer":{"@type":"Answer","text":"Unlike most D2D CRMs that charge per user per month (which gets expensive fast with a large team), BlockBoss CRM charges a flat monthly rate per account. The Team plan is $149/month for up to 5 reps — not $149 per rep."}}]}
+</script>
+
+<script>
+(function(){
+  var faqs=[
+    ['What is BlockBoss CRM?','BlockBoss CRM is a map-based field sales CRM built for door-to-door solar and HVAC canvassing teams. It loads real NYC homeowner names from the city\'s PLUTO database, works fully offline, and gives managers a live GPS view of every rep in the field.'],
+    ['Is there a free trial?','Yes — 14 days on all plans, no credit card required. Your team can be up and knocking doors on day one.'],
+    ['Does BlockBoss CRM work offline?','Yes. It\'s a Progressive Web App (PWA) that works fully offline. Reps mark dispositions, add notes, and set callbacks with no signal. Everything syncs automatically when the device reconnects.'],
+    ['How is BlockBoss different from SalesRabbit?','BlockBoss is built specifically for NYC solar and HVAC teams. It includes NYC PLUTO homeowner data, a proprietary Sun Score algorithm, flat-rate pricing (no per-seat fees), and installs on any phone without an app store.'],
+    ['Does it work on iPhone and Android?','Yes. It\'s a PWA — works on iPhone, Android, and any modern phone. Reps add it to their home screen in two taps, no app store download needed.'],
+    ['Can I use BlockBoss outside of NYC?','Yes. All core features — map, lead tracking, GPS, offline mode — work anywhere. The PLUTO homeowner data feature is NYC-specific, but non-NYC teams can import lead lists via CSV.'],
+    ['What does flat-rate pricing mean?','Unlike CRMs that charge per user/month (which gets expensive fast), BlockBoss charges a flat monthly rate per account. $149/month for up to 5 reps — not $149 per rep.'],
+  ];
+  var list=document.getElementById('faqList');
+  list.innerHTML=faqs.map(function(f,i){
+    return'<details style="border:1px solid #30363d;border-radius:12px;margin-bottom:8px;overflow:hidden"><summary style="padding:16px 18px;cursor:pointer;list-style:none;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;color:#e6edf3" onclick="this.parentElement.querySelectorAll(\'span\').forEach(s=>s.textContent=this.parentElement.open?\'+\':\'–\')">'+f[0]+'<span style="color:#8b949e;font-size:18px;font-weight:400;flex-shrink:0;margin-left:12px">+</span></summary><div style="padding:0 18px 16px;font-size:14px;color:#8b949e;line-height:1.7">'+f[1]+'</div></details>';
+  }).join('');
+})();
+</script>
+
+<div class="cta-banner container">
+  <h2>Ready to run a smarter field operation?</h2>
+  <p>Join 40+ solar and HVAC teams across NYC and Long Island who use BlockBoss CRM to knock more doors and close more deals.</p>
+  <a href="https://m2-energy-crm.netlify.app?plan=team" class="btn-cta">Start Free Trial →</a>
+</div>
+
+<footer>
+  <div>BlockBoss CRM &nbsp;·&nbsp; <a href="https://m2-energy-crm.netlify.app">Login</a> &nbsp;·&nbsp; <a href="landing.html#pricing">Pricing</a> &nbsp;·&nbsp; <a href="door-to-door-sales-app.html">D2D App</a> &nbsp;·&nbsp; <a href="solar-canvassing-crm.html">Solar CRM</a> &nbsp;·&nbsp; <a href="hvac-canvassing-software.html">HVAC</a> &nbsp;·&nbsp; <a href="nyc-solar-crm.html">NYC Solar</a> &nbsp;·&nbsp; <a href="mailto:shaqr@nychvacpro.com">Contact</a></div>
+  <div style="margin-top:8px;font-size:11px">© 2026 BlockBoss CRM. All rights reserved.</div>
+</footer>
+
+</body>
+</html>

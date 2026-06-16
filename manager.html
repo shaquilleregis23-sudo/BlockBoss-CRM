@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlockBoss — Manager Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#0f1724;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--blue:#58a6ff;--yellow:#d29922;--red:#f85149;--purple:#a371f7;--gold:#f9c74f;--cyan:#39d0d8;--orange:#f0883e}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--blue);text-decoration:none}
+button{cursor:pointer;font:inherit}
+
+/* ── Gate ── */
+.gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.gate-box{max-width:380px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:28px;text-align:center}
+.gate-logo{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--gold),var(--cyan));display:inline-flex;align-items:center;justify-content:center;color:#07111d;font-weight:1000;font-size:18px;margin-bottom:14px}
+.gate-box h1{font-size:20px;margin-bottom:4px}
+.gate-box p{color:var(--muted);font-size:13px;margin-bottom:20px;line-height:1.5}
+.gate-box a{display:inline-block;width:100%;padding:12px;background:#238636;color:white;border-radius:10px;font-weight:700;font-size:14px}
+.gate-box a:hover{background:#2ea043}
+.gate-err{color:var(--red);font-size:12px;margin-top:12px}
+
+/* ── Layout ── */
+.dash{display:none;min-height:100vh}
+.topbar{background:rgba(22,27,34,.98);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.topbar-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--cyan));display:flex;align-items:center;justify-content:center;color:#07111d;font-weight:1000;font-size:13px;flex-shrink:0}
+.topbar-title{flex:1;min-width:0}
+.topbar-title b{display:block;font-size:14px}
+.topbar-title span{display:block;font-size:11px;color:var(--muted)}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.pill{border:1px solid var(--border);background:#21262d;color:var(--text);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700}
+.pill.green{background:#238636;border-color:#238636;color:#fff}
+.pill.blue{background:#1f6feb;border-color:#1f6feb;color:#fff}
+#refreshDot{width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0;transition:background .3s}
+#refreshDot.ok{background:var(--green)}
+
+.body{padding:20px 24px 40px;max-width:1200px;margin:0 auto}
+
+/* ── Date bar ── */
+.date-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:8px;flex-wrap:wrap}
+.date-bar .day{font-size:22px;font-weight:800}
+.date-bar .time{font-size:13px;color:var(--muted)}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px}
+.kpi-val{font-size:34px;font-weight:900;line-height:1;margin-bottom:4px}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* ── Cards ── */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-head h2{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;color:var(--blue)}
+.card-head span{font-size:11px;color:var(--muted)}
+
+/* ── Rep table ── */
+.rep-table{width:100%;border-collapse:collapse}
+.rep-table th{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:0 12px 8px;text-align:left}
+.rep-table td{padding:10px 12px;border-top:1px solid rgba(48,54,61,.5);font-size:13px}
+.rep-table tr:last-child td{border-bottom:none}
+.rep-name{font-weight:800;font-size:14px}
+.rep-territory{font-size:11px;color:var(--muted);margin-top:2px}
+.rep-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;flex-shrink:0}
+.rep-cell{display:flex;align-items:center;gap:10px}
+.num-big{font-size:18px;font-weight:900}
+.num-sub{font-size:11px;color:var(--muted)}
+.bar-wrap{width:100%;background:rgba(255,255,255,.06);border-radius:999px;height:5px;overflow:hidden;margin-top:4px}
+.bar-fill{height:100%;border-radius:999px;background:var(--green);transition:width .4s}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px}
+.badge-active{background:rgba(63,185,80,.15);color:var(--green)}
+.badge-idle{background:rgba(139,148,158,.1);color:var(--muted)}
+.badge-due{background:rgba(248,81,73,.12);color:var(--red)}
+.badge-appt{background:rgba(88,166,255,.12);color:var(--blue)}
+
+/* ── Funnel ── */
+.funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.funnel-label{width:80px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;flex-shrink:0}
+.funnel-track{flex:1;height:9px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+.funnel-fill{height:100%;border-radius:999px;transition:width .4s}
+.funnel-num{width:36px;font-size:12px;font-weight:900;text-align:right;flex-shrink:0}
+.funnel-pct{width:36px;font-size:10px;color:var(--muted);text-align:right;flex-shrink:0}
+
+/* ── Callbacks table ── */
+.cb-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid rgba(48,54,61,.5)}
+.cb-item:first-child{border-top:none}
+.cb-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px}
+.cb-dot.soon{background:var(--yellow)}
+.cb-name{font-size:13px;font-weight:800}
+.cb-meta{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+
+/* ── Activity feed ── */
+.feed-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid rgba(48,54,61,.5)}
+.feed-item:first-child{border-top:none}
+.feed-ico{font-size:14px;flex-shrink:0;margin-top:1px}
+.feed-text{font-size:12px;line-height:1.4}
+.feed-text b{font-weight:800}
+.feed-time{font-size:10px;color:var(--muted);flex-shrink:0;margin-top:2px}
+
+/* ── Heatmap ── */
+.heatmap{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;margin-top:6px}
+.hm-cell{height:22px;border-radius:5px;background:rgba(255,255,255,.05);position:relative;transition:background .2s}
+.hm-cell:hover::after{content:attr(title);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:10px;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:10}
+.hm-label{font-size:9px;color:var(--muted);text-align:center;margin-top:3px}
+.hm-labels{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
+
+/* ── Two-col layout ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:28px;color:var(--muted);font-size:13px}
+
+/* ── Responsive ── */
+@media(max-width:860px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .grid-2{grid-template-columns:1fr}
+  .body{padding:14px 16px 40px}
+  .topbar{padding:12px 16px}
+}
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .rep-table .hide-sm{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Gate: shown if not logged in as master -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">M2</div>
+    <h1>Manager Dashboard</h1>
+    <p>This dashboard reads your team's live data.<br>Log in as <strong>Master</strong> in the main CRM first, then come back here.</p>
+    <a href="index.html">Open BlockBoss CRM →</a>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dash" id="dash">
+  <header class="topbar">
+    <div class="topbar-logo">M2</div>
+    <div class="topbar-title">
+      <b id="topCompany">BlockBoss CRM</b>
+      <span id="topTerritory">Manager Dashboard</span>
+    </div>
+    <div class="topbar-actions">
+      <div id="refreshDot" title="Live data"></div>
+      <button class="pill" onclick="refresh()">↻ Refresh</button>
+      <a class="pill blue" href="index.html">Open CRM →</a>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="date-bar">
+      <div class="day" id="dateLabel">—</div>
+      <div class="time" id="clockLabel">—</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-val" id="kpiDoors" style="color:var(--green)">—</div>
+        <div class="kpi-label">Doors Today</div>
+        <div class="kpi-sub" id="kpiDoorsAvg">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" id="kpiAppts" style="color:var(--blue)">—</div>
+        <div class="kpi-label">Appts Set Today</div>
+        <div class="kpi-sub" id="kpiApptRate">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" id="kpiCallbacks" style="color:var(--red)">—</div>
+        <div class="kpi-label">Callbacks Overdue</div>
+        <div class="kpi-sub" id="kpiCallbackSub">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val" id="kpiActive" style="color:var(--gold)">—</div>
+        <div class="kpi-label">Active Reps Today</div>
+        <div class="kpi-sub" id="kpiActiveSub">—</div>
+      </div>
+    </div>
+
+    <!-- Rep performance table -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Rep Performance</h2>
+        <span id="repCount">—</span>
+      </div>
+      <div id="repTable"><div class="empty">No rep data</div></div>
+    </div>
+
+    <!-- Two-column: funnel + callbacks -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Pipeline Funnel</h2>
+          <span id="totalLeads">—</span>
+        </div>
+        <div id="funnelView"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Callbacks Due</h2>
+          <span id="cbCount" style="color:var(--red)">—</span>
+        </div>
+        <div id="callbackView"><div class="empty">All clear ✓</div></div>
+      </div>
+    </div>
+
+    <!-- Two-column: activity + heatmap -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Today's Activity</h2>
+          <span id="actCount">—</span>
+        </div>
+        <div id="activityFeed"><div class="empty">No activity yet today</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Activity Heatmap</h2>
+          <span>Today by hour</span>
+        </div>
+        <div class="heatmap" id="heatmap"></div>
+        <div class="hm-labels" id="heatmapLabels"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">Doors knocked per hour across all reps</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── LocalStorage keys (must match main CRM config.js) ─────────────────────────
+const STORE   = 'm2_original_stack_restored_v1';
+const ACCOUNT = 'm2_account_access_restored_v1';
+const SESSION = 'm2_session_restored_v1';
+const SETTINGS= 'm2_settings_restored_v1';
+
+// ── Data readers ──────────────────────────────────────────────────────────────
+function getState()    { try { return JSON.parse(localStorage.getItem(STORE))   || {leads:[]}; } catch(e) { return {leads:[]}; } }
+function getAccount()  { try { return JSON.parse(localStorage.getItem(ACCOUNT)) || {}; }        catch(e) { return {}; } }
+function getSession()  { try { return JSON.parse(localStorage.getItem(SESSION)) || null; }      catch(e) { return null; } }
+function getSettings() { try { return JSON.parse(localStorage.getItem(SETTINGS))|| {}; }        catch(e) { return {}; } }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const fmtTime  = ts  => { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); };
+const fmtRel   = ts  => {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.round(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.round(diff/3600000) + 'h ago';
+  return new Date(ts).toLocaleDateString();
+};
+const DISP_ICON = { fresh:'🏠', knocked:'✊', interested:'⭐', callback:'📞', not_home:'🚪', not_interested:'👎', not_qualified:'❌', do_not_knock:'🚫', set:'📅', closed:'🏆', do_not_knock:'🚫' };
+const DISP_LABEL= { fresh:'Fresh', knocked:'Knocked', interested:'Interested', callback:'Callback', not_home:'Not Home', not_interested:'Not Interested', not_qualified:'Not Qualified', do_not_knock:'DNC', set:'Appt Set', closed:'Closed' };
+
+const AGENT_COLORS = ['#58a6ff','#3fb950','#a371f7','#f85149','#f9c74f','#39d0d8','#fb923c','#ec4899'];
+const agentColor = (name, agents) => {
+  const idx = agents.findIndex(a => a.name === name);
+  return AGENT_COLORS[(idx < 0 ? 0 : idx) % AGENT_COLORS.length];
+};
+const initials = name => (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+// ── Auth check ────────────────────────────────────────────────────────────────
+function checkAuth() {
+  const sess = getSession();
+  if (!sess || sess.role !== 'master') {
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('dash').style.display  = 'none';
+    if (sess && sess.role === 'agent') {
+      document.getElementById('gateErr').textContent = 'You\'re logged in as a rep. Ask your manager to open this page.';
+    }
+    return false;
+  }
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('dash').style.display  = 'block';
+  return true;
+}
+
+// ── Core stats computation ────────────────────────────────────────────────────
+function computeRepStats(leads, agents) {
+  const today = todayStr();
+  const now   = new Date().toISOString();
+  const repMap = {};
+
+  // Seed all known agents
+  for (const ag of agents) {
+    repMap[ag.name] = { name:ag.name, territory:ag.territory||'', doorsToday:0, apptsToday:0, interestToday:0, callbacksDue:0, hotLeads:0, lastActivity:null, totalLeads:0, color: agentColor(ag.name, agents) };
+  }
+
+  for (const lead of leads) {
+    const rep = lead.agent || 'Unassigned';
+    if (!repMap[rep]) repMap[rep] = { name:rep, territory:'', doorsToday:0, apptsToday:0, interestToday:0, callbacksDue:0, hotLeads:0, lastActivity:null, totalLeads:0, color: AGENT_COLORS[Object.keys(repMap).length % AGENT_COLORS.length] };
+    const r = repMap[rep];
+    r.totalLeads++;
+
+    const todayLogs = (lead.logs||[]).filter(l => (l.ts||'').slice(0,10) === today);
+    if (todayLogs.length > 0) {
+      r.doorsToday++;
+      const last = todayLogs[todayLogs.length-1].ts;
+      if (!r.lastActivity || last > r.lastActivity) r.lastActivity = last;
+    }
+    if (lead.status === 'set'        && todayLogs.some(l => l.action === 'set'))        r.apptsToday++;
+    if (lead.status === 'interested' && todayLogs.some(l => l.action === 'interested')) r.interestToday++;
+    if (lead.callback_due && lead.callback_due < now && lead.status === 'callback') r.callbacksDue++;
+    if ((lead.sun_score||0) >= 70) r.hotLeads++;
+  }
+
+  return Object.values(repMap).sort((a,b) => b.doorsToday - a.doorsToday);
+}
+
+function computeCallbacksDue(leads) {
+  const now = new Date().toISOString();
+  return leads
+    .filter(l => l.callback_due && l.callback_due < now && l.status === 'callback')
+    .sort((a,b) => a.callback_due.localeCompare(b.callback_due))
+    .slice(0, 20);
+}
+
+function computeFunnel(leads) {
+  const order = ['set','closed','interested','callback','not_home','knocked','fresh','not_interested','not_qualified','do_not_knock'];
+  const counts = {};
+  for (const l of leads) counts[l.status] = (counts[l.status]||0) + 1;
+  return order.map(s => ({ status:s, count:counts[s]||0 })).filter(x => x.count > 0);
+}
+
+function computeHeatmap(leads) {
+  const today = todayStr();
+  // 7am-8pm = hours 7-20 (14 slots)
+  const hours = Array.from({length:14}, (_,i) => i+7);
+  const counts = {};
+  for (const h of hours) counts[h] = 0;
+  for (const lead of leads) {
+    for (const log of (lead.logs||[])) {
+      if ((log.ts||'').slice(0,10) !== today) continue;
+      const h = new Date(log.ts).getHours();
+      if (h in counts) counts[h]++;
+    }
+  }
+  const max = Math.max(1, ...Object.values(counts));
+  return hours.map(h => ({ hour:h, count:counts[h]||0, pct: (counts[h]||0)/max }));
+}
+
+function computeActivityFeed(leads) {
+  const today = todayStr();
+  const events = [];
+  for (const lead of leads) {
+    for (const log of (lead.logs||[])) {
+      if ((log.ts||'').slice(0,10) !== today) continue;
+      events.push({ ts:log.ts, action:log.action, note:log.note, addr:lead.addr, agent:lead.agent, owner:(lead.first||lead.owner||'') + ' ' + (lead.last||'') });
+    }
+  }
+  return events.sort((a,b) => b.ts.localeCompare(a.ts)).slice(0, 25);
+}
+
+// ── Renderers ─────────────────────────────────────────────────────────────────
+function renderKPIs(repStats, leads) {
+  const today = todayStr();
+  const now   = new Date().toISOString();
+  const totalDoors  = repStats.reduce((s,r) => s + r.doorsToday, 0);
+  const totalAppts  = repStats.reduce((s,r) => s + r.apptsToday, 0);
+  const totalCBDue  = repStats.reduce((s,r) => s + r.callbacksDue, 0);
+  const activeToday = repStats.filter(r => r.doorsToday > 0).length;
+  const total       = repStats.length;
+
+  document.getElementById('kpiDoors').textContent   = totalDoors;
+  document.getElementById('kpiAppts').textContent   = totalAppts;
+  document.getElementById('kpiCallbacks').textContent = totalCBDue;
+  document.getElementById('kpiActive').textContent  = activeToday;
+
+  document.getElementById('kpiDoorsAvg').textContent  = total ? (totalDoors/total).toFixed(1) + ' doors / rep' : '—';
+  document.getElementById('kpiApptRate').textContent  = totalDoors ? ((totalAppts/totalDoors)*100).toFixed(1) + '% close rate' : '—';
+  document.getElementById('kpiCallbackSub').textContent = totalCBDue > 0 ? 'Needs follow-up now' : 'All followed up ✓';
+  document.getElementById('kpiActiveSub').textContent = `of ${total} rep${total!==1?'s':''}`;
+
+  document.getElementById('kpiCallbacks').style.color = totalCBDue > 0 ? 'var(--red)' : 'var(--green)';
+}
+
+function renderRepTable(repStats) {
+  const maxDoors = Math.max(1, ...repStats.map(r => r.doorsToday));
+  document.getElementById('repCount').textContent = repStats.length + ' reps';
+
+  if (!repStats.length) {
+    document.getElementById('repTable').innerHTML = '<div class="empty">No agents set up. Add reps in the main CRM → Settings.</div>';
+    return;
+  }
+
+  const rows = repStats.map((r, i) => {
+    const rank = i+1;
+    const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+    const activeToday = r.doorsToday > 0;
+    const lastSeen = r.lastActivity ? fmtRel(r.lastActivity) : 'No activity';
+    const cbBadge = r.callbacksDue > 0 ? `<span class="badge badge-due">${r.callbacksDue} due</span>` : '';
+    const apptBadge = r.apptsToday > 0 ? `<span class="badge badge-appt">${r.apptsToday} appt${r.apptsToday>1?'s':''}</span>` : '';
+    const statusBadge = activeToday ? '<span class="badge badge-active">Active</span>' : '<span class="badge badge-idle">Idle</span>';
+
+    return `<tr>
+      <td>
+        <div class="rep-cell">
+          <div class="rep-avatar" style="background:${r.color}22;color:${r.color}">${initials(r.name)}</div>
+          <div>
+            <div class="rep-name">${medal} ${r.name}</div>
+            <div class="rep-territory">${r.territory||'No territory set'}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="num-big" style="color:var(--green)">${r.doorsToday}</div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${(r.doorsToday/maxDoors*100).toFixed(0)}%;background:${r.color}"></div></div>
+      </td>
+      <td class="hide-sm">
+        <div class="num-big" style="color:var(--blue)">${r.apptsToday}</div>
+        <div class="num-sub">${r.interestToday} interested</div>
+      </td>
+      <td class="hide-sm">
+        <div class="num-big">${r.hotLeads}</div>
+        <div class="num-sub">hot leads</div>
+      </td>
+      <td>${statusBadge} ${cbBadge} ${apptBadge}</td>
+      <td style="color:var(--muted);font-size:12px">${lastSeen}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('repTable').innerHTML = `<table class="rep-table">
+    <thead><tr>
+      <th>Rep</th>
+      <th>Doors Today</th>
+      <th class="hide-sm">Appts / Interest</th>
+      <th class="hide-sm">Hot Leads</th>
+      <th>Status</th>
+      <th>Last Active</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderFunnel(leads) {
+  const funnel = computeFunnel(leads);
+  const total  = leads.length;
+  const max    = Math.max(1, ...funnel.map(f => f.count));
+  const COLORS = { set:'#58a6ff', closed:'#3fb950', interested:'#f9c74f', callback:'#f0883e', not_home:'#8b949e', knocked:'#58a6ff', fresh:'#444c56', not_interested:'#f85149', not_qualified:'#da3633', do_not_knock:'#6e2f2e' };
+
+  document.getElementById('totalLeads').textContent = total + ' total leads';
+
+  document.getElementById('funnelView').innerHTML = funnel.map(f => `
+    <div class="funnel-row">
+      <div class="funnel-label">${DISP_LABEL[f.status]||f.status}</div>
+      <div class="funnel-track"><div class="funnel-fill" style="width:${(f.count/max*100).toFixed(0)}%;background:${COLORS[f.status]||'var(--blue)'}"></div></div>
+      <div class="funnel-num">${f.count}</div>
+      <div class="funnel-pct">${total ? ((f.count/total)*100).toFixed(0)+'%' : ''}</div>
+    </div>
+  `).join('') || '<div class="empty">No leads yet</div>';
+}
+
+function renderCallbacks(leads, agents) {
+  const due = computeCallbacksDue(leads);
+  document.getElementById('cbCount').textContent = due.length ? due.length + ' overdue' : 'All clear';
+  document.getElementById('cbCount').style.color = due.length ? 'var(--red)' : 'var(--green)';
+
+  if (!due.length) {
+    document.getElementById('callbackView').innerHTML = '<div class="empty">All callbacks followed up ✓</div>';
+    return;
+  }
+
+  const now = new Date();
+  document.getElementById('callbackView').innerHTML = due.map(l => {
+    const overdueMs = now - new Date(l.callback_due);
+    const overdue   = overdueMs < 3600000 ? Math.round(overdueMs/60000)+'m overdue' : Math.round(overdueMs/3600000)+'h overdue';
+    const isRecent  = overdueMs < 3600000;
+    const owner     = [l.first||l.owner||'', l.last||''].join(' ').trim() || 'Unknown';
+    return `<div class="cb-item">
+      <div class="cb-dot${isRecent?' soon':''}"></div>
+      <div>
+        <div class="cb-name">${owner}</div>
+        <div class="cb-meta">${l.addr||'No address'} · ${l.agent||'Unassigned'}<br>${overdue} · ${l.phone||'No phone'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderActivityFeed(leads) {
+  const events = computeActivityFeed(leads);
+  document.getElementById('actCount').textContent = events.length + ' events';
+
+  if (!events.length) {
+    document.getElementById('activityFeed').innerHTML = '<div class="empty">No activity logged today yet</div>';
+    return;
+  }
+
+  document.getElementById('activityFeed').innerHTML = events.map(ev => {
+    const ico = DISP_ICON[ev.action] || '📌';
+    const label = DISP_LABEL[ev.action] || ev.action || 'Update';
+    const owner = (ev.owner||'').trim() || 'Homeowner';
+    return `<div class="feed-item">
+      <div class="feed-ico">${ico}</div>
+      <div class="feed-text" style="flex:1">
+        <b>${ev.agent||'Rep'}</b> · ${label}<br>
+        <span style="color:var(--muted)">${owner} · ${ev.addr||''}</span>
+      </div>
+      <div class="feed-time">${fmtTime(ev.ts)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHeatmap(leads) {
+  const cells  = computeHeatmap(leads);
+  const am_pm  = h => h < 12 ? h+'am' : h===12 ? '12pm' : (h-12)+'pm';
+
+  document.getElementById('heatmap').innerHTML = cells.map(c => {
+    const alpha = (0.08 + c.pct * 0.82).toFixed(2);
+    const bg = c.count > 0 ? `rgba(63,185,80,${alpha})` : 'rgba(255,255,255,.04)';
+    return `<div class="hm-cell" style="background:${bg}" title="${am_pm(c.hour)}: ${c.count} door${c.count!==1?'s':''}"></div>`;
+  }).join('');
+
+  document.getElementById('heatmapLabels').innerHTML = cells.map(c =>
+    `<div class="hm-label">${am_pm(c.hour)}</div>`
+  ).join('');
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now  = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('dateLabel').textContent = `${days[now.getDay()]}, ${mons[now.getMonth()]} ${now.getDate()}`;
+  document.getElementById('clockLabel').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + ' · Auto-refresh every 60s';
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function refresh() {
+  const dot = document.getElementById('refreshDot');
+  dot.style.background = 'var(--yellow)';
+
+  if (!checkAuth()) return;
+
+  const state    = getState();
+  const account  = getAccount();
+  const settings = getSettings();
+  const leads    = state.leads || [];
+  const agents   = account.agents || [];
+
+  document.getElementById('topCompany').textContent   = settings.company || account.company || 'BlockBoss CRM';
+  document.getElementById('topTerritory').textContent = settings.territory ? settings.territory + ' · Manager View' : 'Manager Dashboard';
+
+  const repStats = computeRepStats(leads, agents);
+
+  renderKPIs(repStats, leads);
+  renderRepTable(repStats);
+  renderFunnel(leads);
+  renderCallbacks(leads, agents);
+  renderActivityFeed(leads);
+  renderHeatmap(leads);
+
+  setTimeout(() => { dot.classList.add('ok'); setTimeout(() => dot.classList.remove('ok'), 1200); }, 200);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+refresh();
+updateClock();
+setInterval(updateClock, 1000);
+setInterval(refresh, 60000);
+</script>
+</body>
+</html>

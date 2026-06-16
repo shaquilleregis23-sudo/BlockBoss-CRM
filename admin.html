@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlockBoss CRM — Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;padding:24px}
+:root{--green:#3fb950;--blue:#58a6ff;--orange:#f0883e;--red:#f85149;--panel:#161b22;--border:#30363d;--muted:#8b949e}
+.login-box{max-width:380px;margin:120px auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px}
+.login-box h1{font-size:20px;margin-bottom:4px}
+.login-box p{color:var(--muted);font-size:13px;margin-bottom:20px}
+input{width:100%;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:#e6edf3;font-size:14px;margin-bottom:12px;outline:none}
+input:focus{border-color:var(--blue)}
+button{width:100%;background:#238636;color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+button:hover{background:#2ea043}
+.err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
+
+.dash{max-width:1100px;margin:0 auto;display:none}
+.dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.dash-head h1{font-size:22px;font-weight:800}
+.dash-head h1 span{color:var(--green)}
+.sign-out{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;width:auto}
+.sign-out:hover{border-color:var(--red);color:var(--red);background:transparent}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}
+.kpi-val{font-size:32px;font-weight:800;margin-bottom:4px}
+.kpi-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+table{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden}
+th{background:#0d1117;padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(88,166,255,.04)}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600}
+.badge-active{background:rgba(63,185,80,.15);color:var(--green)}
+.badge-pending{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge-trial{background:rgba(163,113,247,.15);color:#a371f7}
+.badge-canceled{background:rgba(248,81,73,.12);color:var(--red)}
+.badge-none{background:rgba(139,148,158,.12);color:var(--muted)}
+.plan-solo{color:var(--muted)}
+.plan-team{color:var(--blue)}
+.plan-agency{color:#a371f7}
+.loading{text-align:center;padding:60px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h1>BlockBoss CRM</h1>
+  <p>Admin dashboard — authorized access only</p>
+  <input type="password" id="adminPass" placeholder="Admin password" onkeydown="if(event.key==='Enter')login()">
+  <button onclick="login()">Sign In →</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div class="dash" id="dash">
+  <div class="dash-head">
+    <h1>M2 Energy <span>Admin</span></h1>
+    <button class="sign-out" onclick="signOut()">Sign Out</button>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi"><div class="kpi-val" id="kpiTotal">—</div><div class="kpi-label">Total Accounts</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiActive" style="color:var(--green)">—</div><div class="kpi-label">Active Paying</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiMrr" style="color:var(--blue)">—</div><div class="kpi-label">Monthly Revenue</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpiArr" style="color:#a371f7">—</div><div class="kpi-label">Annual Run Rate</div></div>
+  </div>
+
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;gap:32px">
+    <div><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Solo</span><br><span id="bpSolo" style="font-size:18px;font-weight:700">—</span></div>
+    <div><span style="font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:.5px">Team</span><br><span id="bpTeam" style="font-size:18px;font-weight:700;color:var(--blue)">—</span></div>
+    <div><span style="font-size:11px;color:#a371f7;text-transform:uppercase;letter-spacing:.5px">Agency</span><br><span id="bpAgency" style="font-size:18px;font-weight:700;color:#a371f7">—</span></div>
+    <div style="margin-left:auto;align-self:center"><button onclick="loadData()" style="width:auto;padding:8px 18px;font-size:13px;background:transparent;border:1px solid var(--border);color:var(--muted)">Refresh</button></div>
+  </div>
+
+  <div id="tableWrap"><div class="loading">Loading accounts…</div></div>
+</div>
+
+<script>
+const SB_URL = 'https://cghblukwgsqqwedlzmgh.supabase.co';
+let _pass = '';
+
+async function login(){
+  const pass = document.getElementById('adminPass').value.trim();
+  if(!pass){ document.getElementById('loginErr').textContent='Enter password'; return; }
+  document.querySelector('#loginBox button').textContent='Checking…';
+  try{
+    const res = await fetch(SB_URL+'/functions/v1/admin-data',{headers:{'x-admin-password':pass}});
+    if(!res.ok){ document.getElementById('loginErr').textContent='Incorrect password'; document.querySelector('#loginBox button').textContent='Sign In →'; return; }
+    _pass = pass;
+    sessionStorage.setItem('m2_admin',pass);
+    document.getElementById('loginBox').style.display='none';
+    document.getElementById('dash').style.display='block';
+    renderData(await res.json());
+  }catch(e){
+    document.getElementById('loginErr').textContent='Network error';
+    document.querySelector('#loginBox button').textContent='Sign In →';
+  }
+}
+
+async function loadData(){
+  const res = await fetch(SB_URL+'/functions/v1/admin-data',{headers:{'x-admin-password':_pass}});
+  renderData(await res.json());
+}
+
+function renderData(d){
+  document.getElementById('kpiTotal').textContent = d.total;
+  document.getElementById('kpiActive').textContent = d.active;
+  document.getElementById('kpiMrr').textContent = '$'+d.mrr.toLocaleString();
+  document.getElementById('kpiArr').textContent = '$'+(d.mrr*12).toLocaleString();
+  document.getElementById('bpSolo').textContent = d.by_plan.solo;
+  document.getElementById('bpTeam').textContent = d.by_plan.team;
+  document.getElementById('bpAgency').textContent = d.by_plan.agency;
+
+  const statusBadge = s => {
+    const cls = {'active':'badge-active','trial':'badge-trial','pending':'badge-pending','canceled':'badge-canceled'}[s]||'badge-none';
+    return `<span class="badge ${cls}">${s}</span>`;
+  };
+  const planClass = p => ({'solo':'plan-solo','team':'plan-team','agency':'plan-agency'}[p]||'');
+
+  const rows = (d.accounts||[]).map(a=>`<tr>
+    <td><strong>${a.name||'—'}</strong></td>
+    <td style="color:var(--muted)">${a.email}</td>
+    <td class="${planClass(a.plan)}" style="font-weight:600;text-transform:capitalize">${a.plan}</td>
+    <td>${statusBadge(a.status)}</td>
+    <td style="color:var(--muted)">${a.leads.toLocaleString()}</td>
+    <td style="color:var(--muted)">${a.expires}</td>
+    <td style="color:var(--muted)">${a.created}</td>
+  </tr>`).join('');
+
+  document.getElementById('tableWrap').innerHTML = `<table>
+    <thead><tr>
+      <th>Name</th><th>Email</th><th>Plan</th><th>Status</th><th>Leads</th><th>Renews</th><th>Joined</th>
+    </tr></thead>
+    <tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">No accounts yet</td></tr>'}</tbody>
+  </table>`;
+}
+
+function signOut(){
+  sessionStorage.removeItem('m2_admin');
+  _pass='';
+  document.getElementById('loginBox').style.display='block';
+  document.getElementById('dash').style.display='none';
+  document.getElementById('adminPass').value='';
+  document.getElementById('loginErr').textContent='';
+  document.querySelector('#loginBox button').textContent='Sign In →';
+}
+
+// Auto-login if password was saved this session
+const saved = sessionStorage.getItem('m2_admin');
+if(saved){ document.getElementById('adminPass').value=saved; login(); }
+</script>
+</body>
+</html>

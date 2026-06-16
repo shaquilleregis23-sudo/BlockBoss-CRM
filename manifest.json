@@ -1,0 +1,18 @@
+{
+  "name": "M2 Energy CRM",
+  "short_name": "M2 CRM",
+  "description": "Door-to-door solar & HVAC CRM with live tracking and smart map",
+  "start_url": "./NEW CRM BACKUP.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23f9c74f'/><text y='75' x='12' font-size='72'>☀️</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

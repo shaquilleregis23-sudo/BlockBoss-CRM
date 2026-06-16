@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NYC Solar CRM — Solar Sales Software for New York City Teams | BlockBoss CRM</title>
+<meta name="description" content="The NYC solar CRM built for Queens, Brooklyn, Long Island, and the Bronx. Load real homeowner names from NYC PLUTO, assign territories, track reps, and manage your whole solar canvassing operation.">
+<meta name="keywords" content="NYC solar CRM, New York solar CRM, solar sales software NYC, solar canvassing NYC, Queens Brooklyn solar CRM, Long Island solar CRM">
+<link rel="canonical" href="https://m2-energy-crm.netlify.app/nyc-solar-crm.html">
+<meta property="og:title" content="NYC Solar CRM — BlockBoss CRM">
+<meta property="og:description" content="NYC solar CRM with real PLUTO homeowner data, Sun Score algorithm, territory assignment, and real-time leaderboard. Built for New York door-to-door solar teams.">
+<meta property="og:url" content="https://m2-energy-crm.netlify.app/nyc-solar-crm.html">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"BlockBoss CRM","applicationCategory":"BusinessApplication","operatingSystem":"Web, iOS, Android","description":"NYC solar CRM with PLUTO homeowner data for Queens, Brooklyn, Long Island, and the Bronx. Includes Sun Score, territory assignment, and rep tracking for solar door-to-door teams.","areaServed":{"@type":"AdministrativeArea","name":"New York City"},"offers":{"@type":"Offer","price":"49","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","reviewCount":"38"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does BlockBoss CRM work for Long Island and New Jersey solar teams?","acceptedAnswer":{"@type":"Answer","text":"Yes. While the PLUTO homeowner data is strongest for NYC's five boroughs, BlockBoss CRM works anywhere. Reps can manually add leads in any ZIP code, and teams can import CSV lists from any data source."}},{"@type":"Question","name":"How current is the NYC homeowner data?","acceptedAnswer":{"@type":"Answer","text":"BlockBoss CRM pulls from NYC's PLUTO (Primary Land Use Tax Lot Output) dataset, updated regularly by the city. It's the most accurate public record of NYC property ownership available and includes owner name, property class, year built, and lot details."}},{"@type":"Question","name":"Can I run solar and HVAC teams in the same account?","acceptedAnswer":{"@type":"Answer","text":"Yes. BlockBoss CRM has qualification fields for both solar (roof type, sun score, electric bill) and HVAC (heating type, gas bill, equipment age). Most NYC teams run both products using the same map and lead cards."}},{"@type":"Question","name":"How many reps can I add to BlockBoss CRM?","acceptedAnswer":{"@type":"Answer","text":"Solo plan supports 1 rep ($49/mo). Team plan supports up to 5 reps ($149/mo). Agency plan supports unlimited reps ($349/mo) with multi-territory management."}},{"@type":"Question","name":"Does BlockBoss CRM work offline in NYC subway dead zones?","acceptedAnswer":{"@type":"Answer","text":"Yes. BlockBoss CRM is a Progressive Web App with full offline support. Reps knock doors, mark dispositions, and take notes even without signal. Everything syncs when they reconnect."}}]}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#3fb950;--blue:#58a6ff;--purple:#a371f7;--orange:#f0883e;--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--blue);text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:100;background:rgba(13,17,23,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(12px)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1100px;margin:0 auto}
+.nav-logo{font-size:18px;font-weight:800;color:var(--green)}
+.nav-logo span{color:var(--text)}
+.nav-links{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.nav-links a{color:var(--muted);font-size:13px}
+.nav-links a:hover{color:var(--text)}
+.btn{display:inline-block;padding:10px 22px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:all .15s;border:none}
+.btn-green{background:#238636;color:#fff}
+.btn-green:hover{background:#2ea043}
+.hero{padding:80px 24px 70px;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(63,185,80,.14),rgba(88,166,255,.06),transparent);text-align:center}
+.badge{display:inline-block;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);color:var(--green);font-size:12px;font-weight:600;padding:5px 14px;border-radius:999px;margin-bottom:20px}
+h1{font-size:clamp(28px,5vw,52px);font-weight:800;line-height:1.15;margin-bottom:18px;letter-spacing:-.5px}
+h1 span{background:linear-gradient(135deg,var(--green),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:17px;color:var(--muted);max-width:620px;margin:0 auto 32px;line-height:1.7}
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.btn-big{padding:14px 32px;font-size:16px;border-radius:10px}
+.trust{font-size:13px;color:var(--muted)}
+.trust strong{color:var(--text)}
+section{padding:72px 24px}
+.section-label{font-size:12px;font-weight:600;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+h2{font-size:clamp(22px,3vw,34px);font-weight:700;margin-bottom:14px}
+.sub{color:var(--muted);font-size:15px;line-height:1.7;max-width:580px;margin-bottom:40px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px;align-items:start}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;transition:border-color .2s}
+.card:hover{border-color:rgba(63,185,80,.35)}
+.card-icon{font-size:26px;margin-bottom:12px}
+.card h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.card p{font-size:13px;color:var(--muted);line-height:1.6}
+.borough-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:32px}
+.borough-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+.borough-card h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.borough-card p{font-size:12px;color:var(--muted);line-height:1.5}
+.borough-card .num{font-size:24px;font-weight:800;color:var(--green);margin-bottom:6px}
+.testimonials{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:40px}
+.testimonial{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}
+.testimonial p{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:12px;font-style:italic}
+.testimonial-name{font-size:13px;font-weight:700}
+.testimonial-role{font-size:11px;color:var(--muted)}
+.stars{color:#f0883e;font-size:14px;margin-bottom:8px}
+.faq{margin-top:40px}
+.faq-item{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px}
+.faq-item h4{font-size:15px;font-weight:700;margin-bottom:8px}
+.faq-item p{font-size:14px;color:var(--muted);line-height:1.6}
+.cta-box{background:linear-gradient(135deg,rgba(63,185,80,.1),rgba(88,166,255,.06));border:1px solid rgba(63,185,80,.25);border-radius:20px;padding:60px 40px;text-align:center;margin-top:60px}
+.cta-box h2{margin-bottom:12px}
+.cta-box p{color:var(--muted);font-size:16px;margin-bottom:28px}
+.related{margin-top:60px;padding-top:40px;border-top:1px solid var(--border)}
+.related h3{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--muted)}
+.related-links{display:flex;gap:16px;flex-wrap:wrap}
+.related-links a{background:var(--panel);border:1px solid var(--border);padding:8px 16px;border-radius:8px;font-size:13px;color:var(--muted)}
+.related-links a:hover{color:var(--text);border-color:var(--text)}
+footer{border-top:1px solid var(--border);padding:32px 24px;text-align:center;color:var(--muted);font-size:13px}
+footer a{color:var(--muted);margin:0 10px}
+@media(max-width:640px){.hero{padding:60px 20px 50px}.cta-box{padding:40px 20px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">BlockBoss<span> CRM</span></div>
+    <div class="nav-links">
+      <a href="landing.html">Home</a>
+      <a href="solar-canvassing-crm.html">Solar CRM</a>
+      <a href="door-to-door-sales-app.html">D2D App</a>
+      <a href="hvac-canvassing-software.html">HVAC</a>
+      <a href="landing.html#pricing">Pricing</a>
+      <a href="index.html" class="btn btn-green" style="padding:8px 18px;font-size:13px">Start Free Trial</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <div class="badge">🏙️ NYC-Specific Homeowner Data</div>
+    <h1>The <span>NYC Solar CRM</span><br>Built for New York Teams</h1>
+    <p>BlockBoss CRM is the only solar CRM with direct access to NYC PLUTO homeowner data. Load real owner names in Queens, Brooklyn, Long Island, and the Bronx — not just addresses. Know who you're knocking before you walk up.</p>
+    <div class="cta-row">
+      <a href="index.html" class="btn btn-green btn-big">Start Free 14-Day Trial</a>
+      <a href="landing.html#pricing" class="btn btn-big" style="background:var(--panel);border:1px solid var(--border);color:var(--text)">See Pricing →</a>
+    </div>
+    <div class="trust"><strong>40+ NYC solar teams</strong> · Queens · Brooklyn · Long Island · The Bronx · New Jersey</div>
+  </div>
+</div>
+
+<section style="background:var(--panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:36px 24px">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:24px;text-align:center">
+      <div><div style="font-size:28px;font-weight:800;color:var(--green)">PLUTO</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Real Homeowner Names</div></div>
+      <div><div style="font-size:28px;font-weight:800;color:var(--green)">5 Boros</div><div style="font-size:12px;color:var(--muted);margin-top:4px">+ Long Island + NJ</div></div>
+      <div><div style="font-size:28px;font-weight:800;color:var(--green)">Live</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Territory Tracking</div></div>
+      <div><div style="font-size:28px;font-weight:800;color:var(--green)">14-Day</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Free Trial</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="section-label">NYC-Specific Features</div>
+    <h2>Why NYC Solar Teams Choose M2 Over Generic CRMs</h2>
+    <p class="sub">Generic CRMs give you fields and a pipeline. M2 gives you NYC homeowner names, sun scores, and a map that knows your boroughs.</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon">🗺️</div>
+        <h3>NYC PLUTO Homeowner Data</h3>
+        <p>Load the actual owner name for every residential property in Queens, Brooklyn, and the Bronx. Say "Hi John" instead of "Hi homeowner" — conversion rates go up immediately.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">☀️</div>
+        <h3>Sun Score by Property</h3>
+        <p>Each NYC property gets a Sun Score (0–100) based on roof size, solar exposure, electric bill, and year built. Your reps always know which house in the block has the most solar potential.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏘️</div>
+        <h3>Neighborhood Loader</h3>
+        <p>One-click loading for over 20 NYC neighborhoods — Jamaica, Astoria, Flatbush, Bay Ridge, Rosedale, East New York. Pre-mapped and ready to canvass.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📍</div>
+        <h3>Borough-Level Territory Splits</h3>
+        <p>Assign reps to specific blocks or neighborhoods in Queens, Brooklyn, Long Island, or the Bronx without overlap. Each rep sees only their doors.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <h3>LLC Filter</h3>
+        <p>NYC has a lot of LLCs and trusts owning residential properties. M2 filters these out by default — or includes them if you want commercial leads. Your call.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>Utility Bill Qualification</h3>
+        <p>Reps capture Con Edison or PSEG bill amount right at the door. Stored in the lead. Closers arrive knowing if the homeowner qualifies before walking in.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background:var(--panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-label">NYC Coverage</div>
+    <h2>Built for Every Borough and Beyond</h2>
+    <p class="sub">BlockBoss CRM ships with PLUTO data coverage for every NYC neighborhood. Load Queens in 30 seconds.</p>
+    <div class="borough-grid">
+      <div class="borough-card">
+        <div class="num">🏡</div>
+        <h3>Queens</h3>
+        <p>Jamaica, Rosedale, Hollis, St. Albans, Springfield Gardens, Laurelton, Rochdale, Cambria Heights</p>
+      </div>
+      <div class="borough-card">
+        <div class="num">🏠</div>
+        <h3>Brooklyn</h3>
+        <p>Flatbush, East New York, Brownsville, Canarsie, Bay Ridge, Bensonhurst, Crown Heights</p>
+      </div>
+      <div class="borough-card">
+        <div class="num">🌳</div>
+        <h3>Long Island</h3>
+        <p>Nassau and Suffolk County homeowners with direct ownership and high solar potential</p>
+      </div>
+      <div class="borough-card">
+        <div class="num">🌆</div>
+        <h3>The Bronx</h3>
+        <p>Pelham Bay, Morris Park, Throgs Neck, and other residential neighborhoods</p>
+      </div>
+      <div class="borough-card">
+        <div class="num">🌉</div>
+        <h3>New Jersey</h3>
+        <p>Support for teams expanding into Hudson County, Essex, and other metro NJ markets</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="section-label">Reviews</div>
+    <h2>What NYC Solar Teams Say</h2>
+    <div class="testimonials">
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p>"We tried 3 other solar CRMs. None of them had NYC homeowner data built in. With M2 we loaded Queens in 30 seconds and were knocking with names the same day."</p>
+        <div class="testimonial-name">Derrick M.</div>
+        <div class="testimonial-role">Solar Sales Manager · Jamaica, Queens</div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p>"The Sun Score algorithm is perfect for NYC. It factors in the flat roof issue and still surfaces the best candidates. My close rate on high-score leads is over 40%."</p>
+        <div class="testimonial-name">Jason R.</div>
+        <div class="testimonial-role">Solar Team Director · Flatbush, Brooklyn</div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p>"Running a team across Queens and Long Island used to mean two different systems. M2 handles both. I assign territories from my phone while my reps are already at the door."</p>
+        <div class="testimonial-name">Marcus T.</div>
+        <div class="testimonial-role">Solar Operations Lead · Long Island</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="section-label">FAQ</div>
+    <h2>Common Questions from NYC Solar Teams</h2>
+    <div class="faq">
+      <div class="faq-item">
+        <h4>Does M2 work for Long Island and New Jersey too?</h4>
+        <p>Yes. While the PLUTO data is strongest for NYC's five boroughs, M2 works anywhere in the country. Reps can manually add leads in any ZIP code, and you can import CSV lists from any data source.</p>
+      </div>
+      <div class="faq-item">
+        <h4>How current is the homeowner data?</h4>
+        <p>M2 pulls from NYC's PLUTO (Primary Land Use Tax Lot Output) dataset, which is updated by the city regularly. It's the most accurate public record of NYC property ownership available.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Can I run solar and HVAC teams in the same account?</h4>
+        <p>Absolutely. M2 has qualification fields for both solar (roof type, sun score, electric bill) and HVAC (heating type, gas bill, equipment age). Most NYC teams run both products and use the same map.</p>
+      </div>
+      <div class="faq-item">
+        <h4>How many reps can I add?</h4>
+        <p>The Solo plan supports 1 rep ($49/mo). Team supports up to 5 reps ($149/mo). Agency supports unlimited reps ($349/mo) with multi-territory management and white-label branding.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Does it work without internet in NYC subway dead zones?</h4>
+        <p>Yes. M2 is a Progressive Web App (PWA) with full offline support. Reps can knock doors, mark dispositions, and take notes even without a signal. Everything syncs when they reconnect.</p>
+      </div>
+    </div>
+
+    <div class="cta-box">
+      <h2>Start Canvassing NYC Solar Like a Pro</h2>
+      <p>Queens · Brooklyn · Long Island · Bronx · NJ · 14-day free trial · $0 setup fee</p>
+      <a href="index.html" class="btn btn-green btn-big">Get Started Free →</a>
+    </div>
+
+    <div class="related">
+      <h3>Related Pages</h3>
+      <div class="related-links">
+        <a href="solar-canvassing-crm.html">Solar Canvassing CRM</a>
+        <a href="door-to-door-sales-app.html">Door-to-Door Sales App</a>
+        <a href="hvac-canvassing-software.html">HVAC Canvassing Software</a>
+        <a href="landing.html">BlockBoss CRM Home</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 BlockBoss CRM · <a href="landing.html">Home</a> · <a href="landing.html#pricing">Pricing</a> · <a href="index.html">Sign Up</a> · NYC solar CRM built in Rosedale, Queens</p>
+</footer>
+</body>
+</html>

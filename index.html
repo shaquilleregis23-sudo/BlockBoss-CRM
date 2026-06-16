@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0d1117" />
+<title>BlockBoss CRM — Original Stack Restored</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="BlockBoss CRM">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- PostHog Analytics -->
+<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.people.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||(window.posthog=[]));
+posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https://us.i.posthog.com',person_profiles:'identified_only',autocapture:true,capture_pageview:true})</script>
+<!-- Crisp Chat -->
+<script>window.$crisp=[];window.CRISP_WEBSITE_ID="33d87fa7-6320-4ebf-bf17-3ac16af7668f";(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s)})();</script>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="logo">M2</div>
+  <div class="title"><b id="brandTitle">BlockBoss CRM</b><span id="sessionLine">Original stack restored · Solar + HVAC + Field Team</span></div>
+  <div class="top-actions">
+    <div id="syncDot" class="sync-dot" title="Sync status"></div>
+    <button class="pill-btn hide-sm" id="openLaunch">🚀 Launch</button>
+    <button class="pill-btn blue" id="openLogin">Login</button>
+    <button class="pill-btn gold" id="exportTop">Backup</button>
+  </div>
+</header>
+<main class="main">
+  <div id="map"></div>
+  <button class="filter-toggle" id="filterToggle">Filter: All ▾</button>
+  <div class="filter-bar" id="filterBar"></div>
+  <div class="progress" id="progress"><div class="ttl" id="progTitle">Loading…</div><div class="sub" id="progSub">Starting</div><div class="track"><div class="fill" id="progFill"></div></div><button class="save-btn secondary" id="cancelLoad">Cancel</button></div>
+  <div class="field-dock">
+    <div class="field-tools">
+      <button class="field-toggle" id="fieldToggle">⚡ Field Tools</button>
+      <div class="field-menu" id="fieldMenu">
+        <div class="field-menu-head"><b>Field Rep Tools</b><span>old-style clean menu</span></div>
+        <div class="field-grid">
+          <button class="gold" data-tool="today">⚡ Today Mode</button>
+          <button class="green" data-tool="next">🎯 Next Best</button>
+          <button class="blue" data-tool="locate">📍 Locate Me</button>
+          <button data-tool="satellite">🛰️ Satellite</button>
+          <button class="blue" data-tool="route">🗺️ Route Opt</button>
+          <button data-tool="fit">🗺️ Fit Leads</button>
+          <button class="purple" data-tool="add">➕ Add Lead</button>
+          <button class="green" data-tool="loadArea">⬇ Load Area</button>
+          <button data-tool="neighborhoods">📍 Hoods</button>
+          <button class="gold" data-tool="livetrack">📡 Live Track</button>
+          <button data-tool="clearroute">❌ Clear Route</button>
+        </div>
+      </div>
+    </div>
+    <button class="next-best-pill" id="nextBestPill">🎯 Next Best</button>
+  </div>
+  <div class="info-tag" id="infoTag">Live map is always on. Use Field Tools → Load Area for NYC PLUTO-style homeowner pins.</div>
+  <section class="panel-view" id="listView"><div id="listContainer"></div></section>
+  <section class="panel-view" id="statsView"></section>
+</main>
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-view="map"><span class="ico">🗺️</span>Map</button>
+  <button class="nav-btn" data-view="list"><span class="ico">📋</span>Leads</button>
+  <button class="nav-btn" data-view="stats"><span class="ico">📊</span>Stats</button>
+</nav>
+</div>
+
+<div class="sheet" id="sheet"><div class="sheet-handle" id="sheetHandle"></div><div class="sheet-header"><div class="info"><h2 id="shName">—</h2><div class="addr" id="shAddr">—</div></div><button class="sheet-close" id="closeSheet">×</button></div><div class="sheet-body" id="sheetBody"></div></div>
+<div class="login-overlay" id="loginOverlay"></div>
+<div class="modal" id="modal"></div>
+<div class="toast" id="toast"></div>
+
+<!-- CDN dependencies -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<!-- App modules — load order matters: each file depends on symbols from prior files -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/leads.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/map.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sms.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
