@@ -86,12 +86,12 @@ async function securePasswordLogin(email,password) {
   if(!sb?.auth || !email || password.length<6)return false;
   const { data,error }=await sb.auth.signInWithPassword({email,password});
   if(error || !data?.session)return false;
-  if(!await establishSecureSession(data.session)){await sb.auth.signOut();return false;}
+  if(!await establishSecureSession(data.session)){window._unlinkedAuthSession=data.session;return 'unlinked';}
   return true;
 }
 function openLogin() {
   const a = account(), m = document.getElementById('loginOverlay');
-  m.innerHTML = `<div class="login-box"><h2>Welcome to BlockBoss CRM</h2><p>Owner/master controls teams, leads, assignments and setup. Agents see assigned leads only.</p><div class="login-choice" style="grid-template-columns:1fr 1fr 1fr"><button class="active" data-login-role="master">👑 Master</button><button data-login-role="agent">👥 Agent</button><button data-login-role="signup" style="background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.35);color:var(--green)">✨ Sign Up</button></div><div id="loginSection"><div class="form-row"><label>Email / username</label><input id="loginEmail" autocomplete="username" value="${esc(a.master_email||'')}"></div><div class="form-row"><label>Password / legacy PIN</label><input id="loginPin" type="password" autocomplete="current-password"></div><button class="save-btn blue" data-action="doLogin">Login</button><button class="save-btn secondary" data-action="demoMode">Try Demo Mode</button><p class="sub" style="text-align:center;margin-top:8px"><span data-action="openPinReset" style="color:var(--blue);cursor:pointer;font-size:12px">Forgot PIN?</span></p></div><div id="signupSection" style="display:none"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">${Object.entries(STRIPE_PLANS).map(([k, p]) => `<div data-su-plan="${k}" onclick="window._suPlan=this.dataset.suPlan;document.querySelectorAll('[data-su-plan]').forEach(c=>{c.style.cssText=c.style.cssText.replace(/border:[^;]+/,'border:1px solid var(--border)');c.style.background=''});this.style.border='2px solid var(--blue)';this.style.background='rgba(88,166,255,.08)'" style="${k==='team'?'border:2px solid rgba(88,166,255,.5);background:rgba(88,166,255,.08)':'border:1px solid var(--border)'};border-radius:12px;padding:8px;cursor:pointer;text-align:center;transition:all .15s"><div style="font-weight:700;font-size:12px">${p.label}</div><div style="font-size:18px;font-weight:800;color:var(--blue)">$${p.price}</div><div style="font-size:9px;color:var(--muted)">/mo</div><div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.2">${p.desc.split('·')[0].trim()}</div></div>`).join('')}</div><div class="form-row"><label>Your Name</label><input id="suName" placeholder="John Smith"></div><div class="form-row"><label>Company Name</label><input id="suCompany" placeholder="Acme Solar LLC"></div><div class="form-row"><label>Work Email</label><input id="suEmail" type="email" placeholder="you@company.com" autocomplete="email"></div><div class="form-row"><label>Choose a password (6+ characters)</label><input id="suPin" type="password" minlength="6" maxlength="72" placeholder="6+ characters"></div><button class="save-btn green" data-action="doSignup">Continue to Payment →</button></div><button class="save-btn secondary" data-action="closeLogin">Close</button><p class="sub" style="margin-top:10px">Already have an account? Switch to Master or Agent tab above.</p></div>`;
+  m.innerHTML = `<div class="login-box"><h2>Welcome to BlockBoss CRM</h2><p>Owner/master controls teams, leads, assignments and setup. Agents see assigned leads only.</p><div class="login-choice" style="grid-template-columns:1fr 1fr 1fr"><button class="active" data-login-role="master">👑 Master</button><button data-login-role="agent">👥 Agent</button><button data-login-role="signup" style="background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.35);color:var(--green)">✨ Sign Up</button></div><div id="loginSection"><div class="form-row"><label>Email / username</label><input id="loginEmail" autocomplete="username" value="${esc(a.master_email||'')}"></div><div class="form-row"><label>Password / legacy PIN</label><input id="loginPin" type="password" autocomplete="current-password"></div><button class="save-btn blue" data-action="doLogin">Login</button><button class="save-btn secondary" data-action="demoMode">Try Demo Mode</button><p class="sub" style="text-align:center;margin-top:8px"><span data-action="openPinReset" style="color:var(--blue);cursor:pointer;font-size:12px">Forgot PIN?</span> · <span data-action="openSecureUpgrade" style="color:var(--green);cursor:pointer;font-size:12px;font-weight:700">Upgrade Legacy Login</span></p></div><div id="signupSection" style="display:none"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">${Object.entries(STRIPE_PLANS).map(([k, p]) => `<div data-su-plan="${k}" onclick="window._suPlan=this.dataset.suPlan;document.querySelectorAll('[data-su-plan]').forEach(c=>{c.style.cssText=c.style.cssText.replace(/border:[^;]+/,'border:1px solid var(--border)');c.style.background=''});this.style.border='2px solid var(--blue)';this.style.background='rgba(88,166,255,.08)'" style="${k==='team'?'border:2px solid rgba(88,166,255,.5);background:rgba(88,166,255,.08)':'border:1px solid var(--border)'};border-radius:12px;padding:8px;cursor:pointer;text-align:center;transition:all .15s"><div style="font-weight:700;font-size:12px">${p.label}</div><div style="font-size:18px;font-weight:800;color:var(--blue)">$${p.price}</div><div style="font-size:9px;color:var(--muted)">/mo</div><div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.2">${p.desc.split('·')[0].trim()}</div></div>`).join('')}</div><div class="form-row"><label>Your Name</label><input id="suName" placeholder="John Smith"></div><div class="form-row"><label>Company Name</label><input id="suCompany" placeholder="Acme Solar LLC"></div><div class="form-row"><label>Work Email</label><input id="suEmail" type="email" placeholder="you@company.com" autocomplete="email"></div><div class="form-row"><label>Choose a password (6+ characters)</label><input id="suPin" type="password" minlength="6" maxlength="72" placeholder="6+ characters"></div><button class="save-btn green" data-action="doSignup">Continue to Payment →</button></div><button class="save-btn secondary" data-action="closeLogin">Close</button><p class="sub" style="margin-top:10px">Already have an account? Switch to Master or Agent tab above.</p></div>`;
   window._loginRole = 'master';
   if (!window._suPlan) window._suPlan = 'team';
   m.classList.add('open');
@@ -101,11 +101,13 @@ async function doLogin() {
   setSyncDot('busy');
   // Supabase Auth is attempted first. Legacy PIN lookup remains during the
   // migration window so the original shared production data keeps working.
-  if (await securePasswordLogin(email,pin)) {
+  const secureResult=await securePasswordLogin(email,pin);
+  if (secureResult === true) {
     document.getElementById('loginOverlay').classList.remove('open'); toast('✓ Secure login');
     await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue();
     return;
   }
+  if (secureResult === 'unlinked') { openSecureClaim(email,role); return; }
   const sbData = await sbLookup(email, pin, role);
   if (sbData) {
     saveSession({ role, name:sbData.name, email:sbData.email||email, team_id:sbData.team_id, pin });
@@ -166,6 +168,50 @@ async function doSignup() {
     console.error('doSignup:', err); toast('Network error — check connection and try again');
     if (btn) { btn.disabled=false; btn.textContent='Continue to Payment →'; }
   }
+}
+function openSecureUpgrade() {
+  const ls=document.getElementById('loginSection'); if(!ls)return;
+  const email=val('loginEmail')||account().master_email||'';
+  ls.innerHTML=`<div style="background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.25);border-radius:10px;padding:10px;margin-bottom:12px"><b style="color:var(--green)">🔐 Secure your existing account</b><p class="sub" style="margin:4px 0 0">Your old PIN proves ownership. Your new password is handled by Supabase Auth and is never stored in the CRM.</p></div><div class="form-row"><label>Existing account email</label><input id="upEmail" type="email" autocomplete="email" value="${esc(email)}"></div><div class="form-row"><label>Current legacy PIN</label><input id="upLegacyPin" type="password" inputmode="numeric" autocomplete="current-password"></div><div class="form-row"><label>New secure password (8+ characters)</label><input id="upPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div><div class="form-row"><label>Confirm new password</label><input id="upConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div><button class="save-btn green" data-action="doSecureUpgrade">Create Secure Login</button><button class="save-btn secondary" data-action="openLogin">Back</button>`;
+}
+function openSecureClaim(email,role='master') {
+  const ls=document.getElementById('loginSection'); if(!ls)return;
+  window._secureClaimRole=role;
+  ls.innerHTML=`<div style="background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);border-radius:10px;padding:10px;margin-bottom:12px"><b style="color:var(--blue)">One final verification</b><p class="sub" style="margin:4px 0 0">Your Supabase login is valid. Enter the old CRM PIN once to connect your existing team and leads.</p></div><div class="form-row"><label>Authenticated email</label><input id="claimEmail" value="${esc(email||'')}" disabled></div><div class="form-row"><label>Current legacy PIN</label><input id="claimLegacyPin" type="password" inputmode="numeric" autocomplete="current-password"></div><button class="save-btn green" data-action="doSecureClaim">Connect Existing Account</button><button class="save-btn secondary" data-action="openLogin">Back</button>`;
+}
+async function claimLegacyMembership(email,legacyPin,role='master') {
+  const { data,error }=await sb.rpc('migrate_legacy_account',{legacy_email:email,legacy_pin:legacyPin,requested_role:role});
+  if(error)throw error;
+  const { data:authData }=await sb.auth.getSession();
+  if(!authData?.session || !await establishSecureSession(authData.session))throw Error('Membership could not be confirmed');
+  window._unlinkedAuthSession=null; return data;
+}
+async function finishSecureUpgrade(email,legacyPin,role) {
+  await claimLegacyMembership(email,legacyPin,role);
+  document.getElementById('loginOverlay').classList.remove('open');
+  toast('✓ Secure login connected');
+  await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue();
+}
+async function doSecureUpgrade() {
+  const email=val('upEmail').trim().toLowerCase(),legacyPin=val('upLegacyPin').trim(),password=val('upPassword'),confirmPassword=val('upConfirm'),role=window._loginRole||'master';
+  if(!/\S+@\S+\.\S+/.test(email))return toast('Enter your account email');
+  if(!legacyPin)return toast('Enter your current legacy PIN');
+  if(password.length<8)return toast('Use at least 8 characters');
+  if(password!==confirmPassword)return toast('Passwords do not match');
+  const btn=document.querySelector('[data-action="doSecureUpgrade"]');if(btn){btn.disabled=true;btn.textContent='Creating secure login…';}
+  try{
+    let authResult=await sb.auth.signUp({email,password,options:{data:{legacy_upgrade:true},emailRedirectTo:location.origin+location.pathname+'?auth_upgrade=1'}});
+    if(authResult.error){authResult=await sb.auth.signInWithPassword({email,password});}
+    if(authResult.error)throw authResult.error;
+    if(authResult.data?.session){await finishSecureUpgrade(email,legacyPin,role);return;}
+    document.getElementById('loginSection').innerHTML=`<div style="text-align:center;padding:12px"><div style="font-size:36px">✉️</div><h3>Check your email</h3><p class="sub">Open the Supabase confirmation link for ${esc(email)}. Then return here, log in with your new password, and enter the old PIN once to connect your leads.</p></div><button class="save-btn blue" data-action="openLogin">Back to Login</button>`;
+  }catch(e){toast(e.message?.includes('Legacy')?'Old email or PIN did not match':'Secure upgrade failed: '+(e.message||'Try again'));if(btn){btn.disabled=false;btn.textContent='Create Secure Login';}}
+}
+async function doSecureClaim() {
+  const email=val('claimEmail').trim().toLowerCase(),legacyPin=val('claimLegacyPin').trim(),role=window._secureClaimRole||'master';
+  if(!legacyPin)return toast('Enter your old CRM PIN');
+  const btn=document.querySelector('[data-action="doSecureClaim"]');if(btn){btn.disabled=true;btn.textContent='Connecting…';}
+  try{await finishSecureUpgrade(email,legacyPin,role);}catch(e){toast(e.message?.includes('Legacy')?'Old email or PIN did not match':'Could not connect account');if(btn){btn.disabled=false;btn.textContent='Connect Existing Account';}}
 }
 function openPinReset() {
   const ls = document.getElementById('loginSection'); if (!ls) return;

@@ -118,6 +118,9 @@ function parseAction(e) {
   else if (act === 'openLogin') openLogin();
   else if (act === 'doLogin') doLogin();
   else if (act === 'doSignup') doSignup();
+  else if (act === 'openSecureUpgrade') openSecureUpgrade();
+  else if (act === 'doSecureUpgrade') doSecureUpgrade();
+  else if (act === 'doSecureClaim') doSecureClaim();
   else if (act === 'openPinReset') openPinReset();
   else if (act === 'doPinReset') doPinReset();
   else if (act === 'doInviteAgent') doInviteAgent();

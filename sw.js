@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v2';
+const CACHE = 'm2-hybrid-production-v3';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
   './js/config.js','./js/state.js','./js/storage.js','./js/leads.js','./js/sync.js',
