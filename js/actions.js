@@ -132,7 +132,7 @@ function parseAction(e) {
   else if (act === 'assignAgent') assignToAgent(a.dataset.id);
   else if (act === 'assignVisible') assignVisible();
   else if (act === 'loginAsAgent') { const ag = account().agents.find(x => x.id === a.dataset.id); if (ag) saveSession({ role:'agent', name:ag.name, email:ag.email, id:ag.id, territory:ag.territory }); }
-  else if (act === 'logout') { localStorage.removeItem(SESSION); openLogin(); }
+  else if (act === 'logout') logoutCRM();
   else if (act === 'saveSettings') saveSettingsForm();
   else if (act === 'copyReferral') copyReferralLink();
   else if (act === 'openBranding') openBranding();

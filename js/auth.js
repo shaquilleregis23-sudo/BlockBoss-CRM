@@ -82,6 +82,13 @@ async function initSecureAuth() {
   sb.auth.onAuthStateChange((_event,authSession)=>{ if(authSession) setTimeout(()=>establishSecureSession(authSession).then(ok=>{if(ok){syncFromSupabase();initRealtime();}}),0); });
   return false;
 }
+async function logoutCRM() {
+  try{if(sb?.auth)await sb.auth.signOut();}catch(e){}
+  localStorage.removeItem(SESSION);
+  if(leadRealtimeChannel){sb?.removeChannel(leadRealtimeChannel);leadRealtimeChannel=null;}
+  if(locationRealtimeChannel){sb?.removeChannel(locationRealtimeChannel);locationRealtimeChannel=null;}
+  openLogin(); toast('Securely logged out');
+}
 async function securePasswordLogin(email,password) {
   if(!sb?.auth || !email || password.length<6)return false;
   const { data,error }=await sb.auth.signInWithPassword({email,password});
