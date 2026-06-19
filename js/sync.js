@@ -81,8 +81,12 @@ async function syncFromSupabase() {
   if (!tid) return;
   setSyncDot('busy');
   try {
-    const { data, error } = await sb.from('leads').select('*').eq('team_id', tid).order('updated_at', { ascending:false }).limit(10000);
-    if (error) throw error;
+    const data=[]; const pageSize=1000;
+    for(let from=0;from<100000;from+=pageSize){
+      const { data:page,error }=await sb.from('leads').select('*').eq('team_id',tid).order('updated_at',{ascending:false}).range(from,from+pageSize-1);
+      if(error)throw error; data.push(...(page||[]));
+      if(!page||page.length<pageSize)break;
+    }
     if (data) {
       const merged=new Map((state.leads||[]).map(l=>[l.id,l]));
       data.forEach(r=>{const remote=remoteToLocal(r),local=merged.get(remote.id);markLeadSync(remote,'synced');const winner=newerLead(local,remote);merged.set(remote.id,winner);if(winner===local&&syncTime(local)>syncTime(remote))queueLead(local,'Local edit is newer than cloud');});
