@@ -18,8 +18,9 @@ async function refreshMaintenancePanel(){
   const {data,error}=await sb.from('maintenance_runs').select('*').eq('team_id',session().team_id).order('started_at',{ascending:false}).limit(8);
   if(error){el.innerHTML='<p class="sub">Maintenance history unavailable.</p>';return;}
   const rows=data||[],latest=t=>rows.find(r=>r.job_type===t),backup=latest('backup'),owners=latest('owner_refresh');
-  const line=(r,empty)=>!r?empty:`<b style="color:${r.status==='success'?'var(--green)':'var(--red)'}">${esc(r.status)}</b> · ${new Date(r.started_at).toLocaleString()} · ${r.processed||0} processed${r.details?.matched!=null?' · '+r.details.matched+' matched':''}`;
-  el.innerHTML=`<div class="mini-item"><div class="nm">🔐 Latest encrypted backup</div><div class="meta">${line(backup,'No backup recorded')}</div></div><div class="mini-item"><div class="nm">🏠 Latest owner refresh</div><div class="meta">${line(owners,'No refresh recorded')}</div></div>`;
+  const line=(r,empty)=>!r?empty:`<b style="color:${r.status==='success'?'var(--green)':'var(--red)'}">${esc(r.status)}</b> · ${new Date(r.started_at).toLocaleString()} · ${r.processed||0} processed${r.details?.matched!=null?' · '+r.details.matched+' matched':''}${r.details?.integrity_verified?' · ✓ integrity verified':''}`;
+  const stale=r=>!r||r.status!=='success'||Date.now()-new Date(r.started_at)>36*3600000,alert=stale(backup)||stale(owners)?'<div style="background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.35);border-radius:8px;padding:9px;color:var(--red);font-size:12px;font-weight:700;margin-bottom:8px">⚠ Maintenance needs attention</div>':'';
+  el.innerHTML=alert+`<div class="mini-item"><div class="nm">🔐 Latest encrypted backup</div><div class="meta">${line(backup,'No backup recorded')}</div></div><div class="mini-item"><div class="nm">🏠 Latest owner refresh</div><div class="meta">${line(owners,'No refresh recorded')}</div></div>`;
 }
 async function runMaintenanceJob(action){
   if(!sb||!session().auth_v2)return toast('Secure login required');
@@ -139,12 +140,14 @@ function parseAction(e) {
   else if (act === 'openPinReset') openPinReset();
   else if (act === 'doPinReset') doPinReset();
   else if (act === 'doInviteAgent') doInviteAgent();
+  else if (act === 'activateSecureAgent') activateSecureAgent();
   else if (act === 'doAcceptInvite') doAcceptInvite();
   else if (act === 'demoMode') demoMode();
   else if (act === 'openLaunch') launch();
   else if (act === 'openAgentSetup') openAgentSetup();
   else if (act === 'saveAgent') saveAgent();
   else if (act === 'assignAgent') assignToAgent(a.dataset.id);
+  else if (act === 'assignSecureAgent') assignToSecureAgent(a);
   else if (act === 'assignVisible') assignVisible();
   else if (act === 'loginAsAgent') { const ag = account().agents.find(x => x.id === a.dataset.id); if (ag) saveSession({ role:'agent', name:ag.name, email:ag.email, id:ag.id, territory:ag.territory }); }
   else if (act === 'logout') logoutCRM();

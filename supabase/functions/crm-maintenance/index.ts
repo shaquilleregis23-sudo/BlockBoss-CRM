@@ -25,12 +25,13 @@ async function allRows(table:string,teamId:string){const out:any[]=[];for(let fr
 async function backupTeam(teamId:string){
   const [leads,members,locations]=await Promise.all([allRows('leads',teamId),allRows('crm_team_members',teamId),allRows('agent_locations',teamId)])
   const payload={format:'blockboss-team-backup-v1',created_at:new Date().toISOString(),team_id:teamId,leads,members,locations}
-  const stream=new Blob([JSON.stringify(payload)]).stream().pipeThrough(new CompressionStream('gzip'));const compressed=await new Response(stream).arrayBuffer();const blob=new Blob([compressed],{type:'application/gzip'})
+  const stream=new Blob([JSON.stringify(payload)]).stream().pipeThrough(new CompressionStream('gzip'));const compressed=await new Response(stream).arrayBuffer();const blob=new Blob([compressed],{type:'application/gzip'});const digest=await crypto.subtle.digest('SHA-256',compressed)
   const day=new Date().toISOString().slice(0,10),path=`${teamId}/${day}.json.gz`
   const {error}=await admin.storage.from('crm-backups').upload(path,blob,{contentType:'application/gzip',upsert:true});if(error)throw error
+  const {data:download,error:downloadError}=await admin.storage.from('crm-backups').download(path);if(downloadError||!download)throw downloadError||Error('Backup verification download failed');const downloaded=await download.arrayBuffer();const downloadedDigest=await crypto.subtle.digest('SHA-256',downloaded),a=new Uint8Array(digest),b=new Uint8Array(downloadedDigest);if(a.length!==b.length||a.some((v,i)=>v!==b[i]))throw Error('Backup integrity verification failed')
   const {data:files}=await admin.storage.from('crm-backups').list(teamId,{limit:100,sortBy:{column:'name',order:'desc'}})
   const old=(files||[]).slice(7).map(f=>`${teamId}/${f.name}`);if(old.length)await admin.storage.from('crm-backups').remove(old)
-  return {processed:leads.length,changed:1,path,bytes:blob.size}
+  return {processed:leads.length,changed:1,path,bytes:blob.size,integrity_verified:true}
 }
 async function refreshTeam(teamId:string){
   const {data:leads,error}=await admin.from('leads').select('local_id,team_id,bbl').eq('team_id',teamId).not('bbl','is',null).order('owner_refreshed_at',{ascending:true,nullsFirst:true}).limit(1000);if(error)throw error

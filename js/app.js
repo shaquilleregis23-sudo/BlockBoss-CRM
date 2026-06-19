@@ -69,6 +69,11 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   if (it) { history.replaceState({}, '', location.pathname); setTimeout(() => showAcceptInvite(it), 500); }
 })();
 
+// Supabase secure agent invite redirect.
+(() => {
+  if(new URLSearchParams(location.search).get('agent_invite'))setTimeout(showSecureAgentInvite,900);
+})();
+
 // ?plan=solo|team|agency — pricing CTA
 (() => {
   const pp = new URLSearchParams(location.search).get('plan');

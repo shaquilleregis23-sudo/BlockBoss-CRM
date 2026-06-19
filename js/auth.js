@@ -244,11 +244,19 @@ async function doInviteAgent() {
   const btn = document.querySelector('[data-action="doInviteAgent"]');
   if (btn) { btn.disabled=true; btn.textContent='Sending…'; }
   try {
-    const res = await fetch(SB_URL + '/functions/v1/invite-agent', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY}, body:JSON.stringify({ team_id:s.team_id, master_email:s.email, master_name:s.name, agent_email:email, agent_name:name, territory }) });
-    const data = await res.json();
-    if (!res.ok || data.error) { toast('Error: ' + (data.error||'Try again')); if (btn) { btn.disabled=false; btn.textContent='Send Invite Email →'; } return; }
+    const {data,error}=await sb.functions.invoke('secure-invite-agent',{body:{email,name,territory}});
+    if(error||!data?.ok) { toast('Error: ' + (data?.error||error?.message||'Try again')); if (btn) { btn.disabled=false; btn.textContent='Send Secure Invite →'; } return; }
     closeModal(); toast('✓ Invite sent to ' + email);
   } catch(err) { toast('Network error'); if (btn) { btn.disabled=false; btn.textContent='Send Invite Email →'; } }
+}
+async function showSecureAgentInvite(){
+  const {data}=await sb.auth.getSession();if(!data?.session)return toast('Open the newest invite link from your email');
+  modal('🔐 Create Your Agent Password',`<p class="sub">Choose a secure password to activate your assigned territory.</p><div class="form-row"><label>New password (8+ characters)</label><input id="agentNewPassword" type="password" minlength="8" autocomplete="new-password"></div><div class="form-row"><label>Confirm password</label><input id="agentConfirmPassword" type="password" minlength="8" autocomplete="new-password"></div><button class="save-btn green" data-action="activateSecureAgent">Activate Secure Agent Account</button>`);
+}
+async function activateSecureAgent(){
+  const password=val('agentNewPassword'),confirmPassword=val('agentConfirmPassword');if(password.length<8)return toast('Use at least 8 characters');if(password!==confirmPassword)return toast('Passwords do not match');
+  const {error}=await sb.auth.updateUser({password});if(error)return toast(error.message||'Could not set password');const {error:rpcError}=await sb.rpc('activate_my_crm_membership');if(rpcError)return toast('Could not activate membership');
+  const {data}=await sb.auth.getSession();if(data?.session)await establishSecureSession(data.session);closeModal();toast('✓ Agent account activated');await syncFromSupabase();initRealtime();
 }
 function showAcceptInvite(token) {
   window._inviteToken = token;
@@ -269,7 +277,8 @@ async function doAcceptInvite() {
   } catch(err) { toast('Network error — try again'); if (btn) { btn.disabled=false; btn.textContent='Activate My Account →'; } }
 }
 function openAgentSetup() {
-  modal('👥 Add Agent', `<div class="login-choice" style="margin-bottom:12px"><button class="active" data-agent-tab="manual">Create Manually</button><button data-agent-tab="invite">📧 Invite by Email</button></div><div id="agManual"><div class="form-grid-2"><div class="form-row"><label>Agent Name</label><input id="agName"></div><div class="form-row"><label>Territory</label><input id="agTerritory" value="${esc(settings().territory||'')}"></div></div><div class="form-grid-2"><div class="form-row"><label>Email / Username</label><input id="agEmail"></div><div class="form-row"><label>PIN</label><input id="agPin" placeholder="1234"></div></div><button class="save-btn green" data-action="saveAgent">Save Agent</button></div><div id="agInvite" style="display:none"><p class="sub" style="margin-bottom:10px">Agent gets an email with a link to set their own PIN — no PIN sharing needed.</p><div class="form-row"><label>Agent Name</label><input id="invName" placeholder="John Smith"></div><div class="form-row"><label>Agent Email</label><input id="invEmail" type="email" placeholder="rep@company.com"></div><div class="form-row"><label>Territory (optional)</label><input id="invTerritory" value="${esc(settings().territory||'')}"></div><button class="save-btn blue" data-action="doInviteAgent">Send Invite Email →</button></div>`);
+  if(!session().auth_v2)return toast('Secure master login required');
+  modal('👥 Invite Secure Agent', `<p class="sub" style="margin-bottom:10px">Supabase sends the agent a protected email link. They create their own password; you never handle it.</p><div class="form-row"><label>Agent Name</label><input id="invName" placeholder="John Smith"></div><div class="form-row"><label>Agent Email</label><input id="invEmail" type="email" placeholder="rep@company.com"></div><div class="form-row"><label>Territory</label><input id="invTerritory" value="${esc(settings().territory||'')}"></div><button class="save-btn blue" data-action="doInviteAgent">Send Secure Invite →</button>`);
 }
 function saveAgent() {
   const a = account(), email = val('agEmail').toLowerCase();
@@ -286,8 +295,18 @@ function assignToAgent(id) {
   arr.forEach(l => { l.assigned_agent=ag.name; l.assigned_user_email=ag.email; l.assigned_user_id=ag.id; if (ag.territory) l.territory=ag.territory; l.updated_at=new Date().toISOString(); });
   saveState(); toast(`✓ Assigned ${arr.length} leads`); renderAll();
 }
-function assignVisible() {
+async function assignVisible() {
+  if(session().auth_v2&&sb){
+    const {data,error}=await sb.from('crm_team_members').select('user_id,display_name,email,territory,status').eq('team_id',session().team_id).eq('role','agent');
+    if(error)return toast('Could not load secure agents');if(!data?.length){openAgentSetup();return;}
+    modal('Assign Visible Leads',`<p class="sub">Only leads assigned here are visible to that agent.</p>${data.map(a=>`<div class="agent-row"><div class="nm">${esc(a.display_name||a.email)} <span class="badge ${a.status==='active'?'hot':'gold'}">${esc(a.status)}</span></div><div class="meta">${esc(a.email||'')} · ${esc(a.territory||'')}</div><button class="save-btn blue" data-action="assignSecureAgent" data-user-id="${esc(a.user_id)}" data-email="${esc(a.email||'')}" data-name="${esc(a.display_name||a.email||'Agent')}" data-territory="${esc(a.territory||'')}">Assign Visible Leads</button></div>`).join('')}`);return;
+  }
   const agents = account().agents || [];
   if (!agents.length) { openAgentSetup(); return; }
   modal('Assign Visible Leads', `<p class="sub">Choose an agent. Current filter controls which leads get assigned.</p>${agents.map(a=>`<div class="agent-row"><div class="nm">${esc(a.name)}</div><div class="meta">${esc(a.email)} · ${esc(a.territory||'')}</div><button class="save-btn blue" data-action="assignAgent" data-id="${a.id}">Assign Visible Leads</button></div>`).join('')}`);
+}
+function assignToSecureAgent(button){
+  const arr=filterLeads(),name=button.dataset.name,email=button.dataset.email,userId=button.dataset.userId,territory=button.dataset.territory;
+  if(!confirm(`Assign ${arr.length} visible leads to ${name}?`))return;
+  arr.forEach(l=>{l.assigned_agent=name;l.assigned_user_email=email;l.assigned_user_id=userId;if(territory)l.territory=territory;l.updated_at=new Date().toISOString();});saveState();upsertBatch(arr);closeModal();toast(`✓ Assigned ${arr.length} leads to ${name}`);renderAll();
 }
