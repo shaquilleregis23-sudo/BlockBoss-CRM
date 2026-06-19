@@ -4,7 +4,16 @@ function loadState() {
   catch(e) { return { leads:[], filter:'all' }; }
 }
 function saveState() {
-  try { localStorage.setItem(STORE, JSON.stringify(state)); }
+  if (typeof scheduleLeadPersistence === 'function') scheduleLeadPersistence(state.leads);
+  try {
+    const json = JSON.stringify(state);
+    // IndexedDB is the durable large-territory store. Keep localStorage as the
+    // fast bootstrap only while it remains comfortably below Safari's quota.
+    if (json.length > 3200000) {
+      const bootstrap = { ...state, leads:state.leads.filter(l => l.source==='manual' || l.source==='imported' || (l.status && l.status!=='fresh')).slice(-1200), idb_backed:true };
+      localStorage.setItem(STORE, JSON.stringify(bootstrap));
+    } else localStorage.setItem(STORE, json);
+  }
   catch(e) {
     // localStorage full — trim PLUTO-fresh leads to save space
     const slim = { ...state, leads: state.leads.filter(l => l.source==='manual' || l.source==='imported' || (l.status && l.status!=='fresh')) };
@@ -74,6 +83,19 @@ function toast(msg) { const t = document.getElementById('toast'); t.textContent 
 function info(msg) { document.getElementById('infoTag').textContent = msg; }
 function val(id) { return document.getElementById(id)?.value || ''; }
 function digits(v) { return String(v || '').replace(/\D/g, ''); }
+function normalizeAddress(v) {
+  return String(v || '').toUpperCase().trim()
+    .replace(/,.*$/,'')
+    .replace(/\b(QUEENS|BROOKLYN|BRONX|MANHATTAN|STATEN ISLAND|NEW YORK)\b\s*,?\s*NY\s*\d{5}(?:-\d{4})?$/,'')
+    .replace(/\b(STREET|ST)\b/g,'ST').replace(/\b(AVENUE|AVE)\b/g,'AVE')
+    .replace(/\b(BOULEVARD|BLVD)\b/g,'BLVD').replace(/\b(ROAD|RD)\b/g,'RD')
+    .replace(/\b(PLACE|PL)\b/g,'PL').replace(/\b(COURT|CT)\b/g,'CT')
+    .replace(/[^A-Z0-9]/g,'');
+}
+function leadIdentityKey(l) {
+  if (l?.bbl) return `bbl:${String(l.bbl).replace(/\D/g,'')}`;
+  return `addr:${normalizeAddress(l?.addr)}:${String(l?.zip||'').replace(/\D/g,'').slice(0,5)}`;
+}
 function localDT(v) {
   if (!v) return '';
   const d = new Date(v);

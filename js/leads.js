@@ -74,7 +74,11 @@ function filterLeads(arr = scopedLeads()) {
   if (f === 'manual') return arr.filter(l => l.source === 'manual');
   if (f === 'pluto') return arr.filter(l => l.source === 'pluto');
   if (f === 'imported') return arr.filter(l => l.source === 'imported');
-  if (f === 'entity') return arr.filter(l => l.entity);
+  if (f === 'entity') return arr.filter(l => l.entity && !l.hpd_enriched);
+  if (f === 'hpd') return arr.filter(l => l.hpd_enriched);
+  if (f === 'acris') return arr.filter(l => l.acris_owner_names?.length);
+  if (f === 'joint') return arr.filter(l => l.joint);
+  if (f === 'verify') return arr.filter(l => l.needs_verify && !l.hpd_enriched);
   if (f === 'assigned') return arr.filter(l => l.assigned_agent || l.assigned_user_email);
   return arr.filter(l => (l.status || 'fresh') === f);
 }
@@ -94,23 +98,39 @@ function enrichSolar(leads) {
 
 // ── PLUTO Parsing ─────────────────────────────────────────────────────────────
 function title(s) { return String(s || '').toLowerCase().replace(/\b\w/g, m => m.toUpperCase()); }
+function parsePersonOwner(part) {
+  const clean = String(part || '').toUpperCase().trim().replace(/\b(JR|SR|II|III|IV|MD|PHD|ESQ)\.?$/, '').trim();
+  const bits = clean.split(/\s+/).filter(Boolean);
+  if (bits.length < 2) return null;
+  return { first:title(bits[1]), last:title(bits[0]) };
+}
 function parseOwner(raw, includeLLC = true, allowVerify = true) {
   if (!raw) return null;
-  const up = raw.toUpperCase().trim();
-  const ent = ['LLC','CORP','INC','TRUST','ESTATE','REALTY','PROPERTIES','HOLDINGS','MANAGEMENT','ASSOCIATES','BANK','CITY OF','NYC'].some(t => up.includes(t));
+  const up = String(raw).toUpperCase().trim();
+  const ent = ['LLC','L.L.C','CORP','INC','TRUST','ESTATE','REALTY','PROPERTIES','HOLDINGS','MANAGEMENT','ASSOCIATES','BANK','CITY OF','NYC','LTD',' LLP',' LP ','CO-OP','CONDO'].some(t => up.includes(t));
   if (ent) return includeLLC ? { first:'', last:title(raw).slice(0, 44), entity:true, raw } : null;
-  const primary = up.split('&')[0].trim().replace(/\b(JR|SR|II|III|IV)\.?$/, '').trim();
-  const p = primary.split(/\s+/).filter(Boolean);
-  if (p.length < 2 && !allowVerify) return null;
-  if (p.length < 2) return { first:'', last:title(p[0] || raw), needs_verify:true, raw };
-  return { first:title(p[1]), last:title(p[0]), raw };
+  const ownerParts = up.split(/\s+(?:&|AND)\s+/).map(x => x.trim()).filter(Boolean);
+  const primary = parsePersonOwner(ownerParts[0]);
+  if (!primary) {
+    if (!allowVerify) return null;
+    return { first:'', last:title(ownerParts[0] || raw), needs_verify:true, raw };
+  }
+  const result = { ...primary, raw };
+  if (ownerParts.length > 1) {
+    const second = parsePersonOwner(ownerParts[1]);
+    if (second) {
+      result.joint = true;
+      result.coowner = second.last === primary.last ? second.first : `${second.first} ${second.last}`;
+    }
+  }
+  return result;
 }
 function plutoToLead(p) {
   const set = settings(), parsed = parseOwner(p.ownername, set.include_llc !== false, set.allow_verify !== false);
   if (!parsed || !p.latitude || !p.longitude) return null;
   return {
     id: 'p_' + (p.bbl || Date.now() + Math.random()), source:'pluto', status:'fresh',
-    bbl:p.bbl, first:parsed.first, last:parsed.last, entity:parsed.entity, needs_verify:parsed.needs_verify,
+    bbl:p.bbl, first:parsed.first, last:parsed.last, entity:parsed.entity, needs_verify:parsed.needs_verify, joint:parsed.joint, coowner:parsed.coowner,
     raw_owner:p.ownername, addr:title(p.address || ''),
     boro: p.borough === 'QN' ? 'Queens' : p.borough === 'BK' ? 'Brooklyn' : p.borough,
     zip:p.zipcode || '', lat:+p.latitude, lng:+p.longitude,
@@ -133,7 +153,8 @@ async function loadPlutoBounds(bounds, name = 'this area') {
   prog.classList.add('open');
   document.getElementById('progTitle').textContent = `Loading ${name} owner names…`;
   fill.style.width = '0%';
-  const existing = new Set(state.leads.map(l => l.bbl).filter(Boolean));
+  const existingBBL = new Set(state.leads.map(l => l.bbl).filter(Boolean).map(String));
+  const existingIdentity = new Set(state.leads.map(leadIdentityKey));
   let added = 0, skipped = 0, newLeads = [];
   try {
     const where = [
@@ -152,11 +173,13 @@ async function loadPlutoBounds(bounds, name = 'this area') {
     for (let i = 0; i < data.length; i++) {
       if (loadCancelled) break;
       const p = data[i];
-      if (p.bbl && existing.has(p.bbl)) { skipped++; continue; }
+      if (p.bbl && existingBBL.has(String(p.bbl))) { skipped++; continue; }
       const l = plutoToLead(p);
       if (!l) { skipped++; continue; }
+      const identity=leadIdentityKey(l);
+      if(existingIdentity.has(identity)){skipped++;continue;}
       state.leads.push(l); newLeads.push(l);
-      if (l.bbl) existing.add(l.bbl);
+      if (l.bbl) existingBBL.add(String(l.bbl)); existingIdentity.add(identity);
       added++;
       if (i % 250 === 0) { fill.style.width = Math.round(i / data.length * 100) + '%'; sub.textContent = `${added} added · ${skipped} skipped`; }
     }
@@ -174,6 +197,140 @@ async function loadPlutoBounds(bounds, name = 'this area') {
   }
 }
 
+// ── Free HPD Owner Enrichment ────────────────────────────────────────────────
+// Cross-references entity/uncertain PLUTO owners with NYC HPD's public registry.
+const HPD_REGS = 'https://data.cityofnewyork.us/resource/tesw-yqqr.json';
+const HPD_CONTACTS = 'https://data.cityofnewyork.us/resource/feu5-w2e2.json';
+const HPD_PRIORITY = { IndividualOwner:1, JointOwner:2, HeadOfficer:3, Owner:4, CorporateOwner:5, Agent:6, SiteManager:7 };
+function hpdLotKeyFromBBL(bbl) {
+  const raw=String(bbl||'').replace(/\D/g,'').padStart(10,'0').slice(-10);
+  return `${parseInt(raw.slice(0,1),10)}-${parseInt(raw.slice(1,6),10)}-${parseInt(raw.slice(6,10),10)}`;
+}
+function hpdLotKey(row) { return `${parseInt(row.boroid,10)}-${parseInt(row.block,10)}-${parseInt(row.lot,10)}`; }
+function applyHPDContact(lead,c) {
+  if(!lead||!c)return false;
+  lead.original_entity_name=lead.original_entity_name||nameOf(lead); lead.first=title(c.firstname); lead.last=title(c.lastname);
+  lead.entity_resolved=true; lead.hpd_enriched=true; lead.hpd_type=c.type||'';
+  lead.hpd_business_addr=[c.businesshousenumber,c.businessstreetname].filter(Boolean).join(' ');
+  lead.hpd_business_city=c.businesscity||''; lead.hpd_business_state=c.businessstate||''; lead.hpd_business_zip=c.businesszip||'';
+  lead.hpd_checked_at=new Date().toISOString(); lead.updated_at=new Date().toISOString(); return true;
+}
+async function enrichWithHPD(scope = 'view') {
+  let candidates = state.leads.filter(l => l.bbl && !l.hpd_enriched && (l.entity || l.needs_verify));
+  if (scope === 'view') {
+    const b = map.getBounds();
+    candidates = candidates.filter(l => l.lat && l.lng && b.contains([+l.lat,+l.lng]));
+  }
+  if (!candidates.length) return toast('No LLC / verify leads to enrich here');
+  let cachedMatched=0;
+  if(typeof enrichmentCacheGet==='function'){
+    const cached=await enrichmentCacheGet(candidates.map(l=>'hpd:'+String(l.bbl)));
+    candidates=candidates.filter(l=>{const k='hpd:'+String(l.bbl);if(!cached.has(k))return true;const c=cached.get(k);if(c&&applyHPDContact(l,c))cachedMatched++;return false;});
+    if(!candidates.length){saveState();renderAll();return toast(`✓ HPD cache restored ${cachedMatched} owners`);}
+  }
+  const prog=document.getElementById('progress'), fill=document.getElementById('progFill'), sub=document.getElementById('progSub');
+  prog.classList.add('open'); document.getElementById('progTitle').textContent=`Unmasking ${candidates.length} owners…`; fill.style.width='2%';
+  const regs=[]; const byLot=new Map(candidates.map(l=>[hpdLotKeyFromBBL(l.bbl),l]));
+  try {
+    for (let i=0;i<candidates.length;i+=75) {
+      if (loadCancelled) break;
+      const batch=candidates.slice(i,i+75), where=batch.map(l=>{const [boro,block,lot]=hpdLotKeyFromBBL(l.bbl).split('-');return `(boroid='${boro}' AND block='${block}' AND lot='${lot}')`;}).join(' OR ');
+      const r=await fetch(`${HPD_REGS}?$where=${encodeURIComponent(where)}&$limit=500&$select=registrationid,boroid,block,lot`);
+      if (!r.ok) throw Error(`HPD registrations ${r.status}`);
+      regs.push(...await r.json()); fill.style.width=Math.min(48,Math.round((i+75)/candidates.length*48))+'%'; sub.textContent=`Registrations: ${regs.length}`;
+    }
+    const regToLead=new Map(); regs.forEach(r=>{const l=byLot.get(hpdLotKey(r)); if(l) regToLead.set(String(r.registrationid),l);});
+    const ids=[...regToLead.keys()]; if(!ids.length){toast('No HPD registrations found'); return;}
+    const best=new Map();
+    for(let i=0;i<ids.length;i+=90){
+      if(loadCancelled) break;
+      const batch=ids.slice(i,i+90), where=batch.map(id=>`registrationid='${id.replace(/'/g,"''")}'`).join(' OR ');
+      const r=await fetch(`${HPD_CONTACTS}?$where=${encodeURIComponent(where)}&$limit=1000&$select=registrationid,type,firstname,middleinitial,lastname,corporationname,businesshousenumber,businessstreetname,businesscity,businessstate,businesszip`);
+      if(!r.ok) throw Error(`HPD contacts ${r.status}`);
+      for(const c of await r.json()){
+        if(!c.firstname || !c.lastname) continue;
+        const old=best.get(String(c.registrationid));
+        if(!old || (HPD_PRIORITY[c.type]||99)<(HPD_PRIORITY[old.type]||99)) best.set(String(c.registrationid),c);
+      }
+      fill.style.width=(50+Math.min(48,Math.round((i+90)/ids.length*48)))+'%'; sub.textContent=`Contacts matched: ${best.size}`;
+    }
+    let matched=0; const cacheEntries=[];
+    best.forEach((c,id)=>{const l=regToLead.get(id); if(!l)return; if(applyHPDContact(l,c)){matched++;cacheEntries.push(['hpd:'+String(l.bbl),c]);}});
+    if(typeof enrichmentCachePut==='function'&&cacheEntries.length)await enrichmentCachePut(cacheEntries,30);
+    saveState(); renderAll(); toast(`✓ HPD unmasked ${matched+cachedMatched} owners`); info(`HPD: ${matched+cachedMatched} real owner names added`);
+  } catch(e) { toast('HPD enrichment failed'); info('HPD failed: '+e.message); }
+  finally { prog.classList.remove('open'); }
+}
+
+// ── ACRIS Deed Freshness ─────────────────────────────────────────────────────
+const ACRIS_LEGALS='https://data.cityofnewyork.us/resource/8h5j-fqxa.json';
+const ACRIS_MASTER='https://data.cityofnewyork.us/resource/bnx9-e6tj.json';
+const ACRIS_PARTIES='https://data.cityofnewyork.us/resource/636b-3b5g.json';
+function parseAcrisBuyer(raw){
+  const s=String(raw||'').trim(); if(!s)return null;
+  if(/\b(LLC|L\.L\.C|INC|CORP|CORPORATION|COMPANY|CO\.?|TRUST|ESTATE|ASSOCIATES|HOLDINGS|REALTY|PROPERTIES|PARTNERS)\b/i.test(s))return {first:'',last:title(s),full:title(s),entity:true};
+  if(s.includes(',')){const [last,rest]=s.split(',',2),bits=rest.trim().split(/\s+/);return {first:title(bits[0]||''),last:title(last),full:title(`${bits[0]||''} ${last}`)};}
+  const bits=s.split(/\s+/); if(bits.length<2)return {first:'',last:title(s),full:title(s)};
+  // ACRIS commonly stores people as LAST FIRST when no comma is present.
+  return {first:title(bits.slice(1).join(' ')),last:title(bits[0]),full:title(`${bits.slice(1).join(' ')} ${bits[0]}`)};
+}
+function applyAcrisValue(lead,value){
+  if(!lead||!value)return false;
+  lead.acris_owner_names=value.names||[]; lead.acris_recorded_at=value.recorded_at||''; lead.acris_document_id=value.document_id||'';
+  lead.acris_checked_at=new Date().toISOString(); lead.owner_freshness=value.freshness||'historical_deed';
+  const primary=parseAcrisBuyer(lead.acris_owner_names[0]);
+  if(primary && (value.freshness==='recent_deed'||lead.entity||lead.needs_verify)){
+    lead.original_owner_name=lead.original_owner_name||nameOf(lead); lead.first=primary.first; lead.last=primary.last;
+    const second=parseAcrisBuyer(lead.acris_owner_names[1]); if(second){lead.joint=true;lead.coowner=second.full;}
+    lead.acris_promoted=true;
+  }
+  return true;
+}
+async function enrichWithACRIS(scope='view'){
+  let candidates=state.leads.filter(l=>l.bbl);
+  if(scope==='view'){const b=map.getBounds();candidates=candidates.filter(l=>l.lat&&l.lng&&b.contains([+l.lat,+l.lng]));}
+  if(!candidates.length)return toast('No BBL leads to check with ACRIS');
+  let cachedCount=0;
+  if(typeof enrichmentCacheGet==='function'){
+    const cached=await enrichmentCacheGet(candidates.map(l=>'acris:'+String(l.bbl)));
+    candidates=candidates.filter(l=>{const k='acris:'+String(l.bbl);if(!cached.has(k))return true;const v=cached.get(k);if(v&&applyAcrisValue(l,v))cachedCount++;return false;});
+    if(!candidates.length){saveState();renderAll();return toast(`✓ ACRIS cache restored ${cachedCount} records`);}
+  }
+  const prog=document.getElementById('progress'),fill=document.getElementById('progFill'),sub=document.getElementById('progSub');
+  prog.classList.add('open');document.getElementById('progTitle').textContent=`Checking ${candidates.length} deeds…`;fill.style.width='2%';loadCancelled=false;
+  const docToLeads=new Map(), newestByLead=new Map();
+  try{
+    for(let i=0;i<candidates.length;i+=20){
+      if(loadCancelled)break;const batch=candidates.slice(i,i+20);
+      const where=batch.map(l=>{const [borough,block,lot]=hpdLotKeyFromBBL(l.bbl).split('-');return `(borough=${borough} AND block=${block} AND lot=${lot})`;}).join(' OR ');
+      const r=await fetch(`${ACRIS_LEGALS}?$where=${encodeURIComponent(where)}&$limit=4000&$order=${encodeURIComponent('document_id DESC')}&$select=document_id,borough,block,lot`);
+      if(!r.ok)throw Error(`ACRIS legals ${r.status}`);
+      const byLot=new Map(batch.map(l=>[hpdLotKeyFromBBL(l.bbl),l]));
+      for(const d of await r.json()){const l=byLot.get(`${parseInt(d.borough,10)}-${parseInt(d.block,10)}-${parseInt(d.lot,10)}`);if(!l)continue;const arr=docToLeads.get(d.document_id)||[];arr.push(l);docToLeads.set(d.document_id,arr);}
+      fill.style.width=Math.min(33,Math.round((i+20)/candidates.length*33))+'%';sub.textContent=`ACRIS documents: ${docToLeads.size}`;
+    }
+    const docIds=[...docToLeads.keys()];
+    for(let i=0;i<docIds.length;i+=50){
+      const ids=docIds.slice(i,i+50),where=`document_id in (${ids.map(x=>`'${String(x).replace(/'/g,"''")}'`).join(',')}) AND starts_with(doc_type,'DEED')`;
+      const r=await fetch(`${ACRIS_MASTER}?$where=${encodeURIComponent(where)}&$limit=200&$select=document_id,doc_type,document_date,recorded_datetime`);if(!r.ok)throw Error(`ACRIS master ${r.status}`);
+      for(const d of await r.json())for(const l of docToLeads.get(d.document_id)||[]){const old=newestByLead.get(l.id);if(!old||new Date(d.recorded_datetime||0)>new Date(old.recorded_datetime||0))newestByLead.set(l.id,d);}
+      fill.style.width=(34+Math.min(32,Math.round((i+50)/Math.max(1,docIds.length)*32)))+'%';sub.textContent=`Deeds found: ${newestByLead.size}`;
+    }
+    const selected=[...new Set([...newestByLead.values()].map(x=>x.document_id))],partiesByDoc=new Map();
+    for(let i=0;i<selected.length;i+=50){
+      const ids=selected.slice(i,i+50),where=`document_id in (${ids.map(x=>`'${String(x).replace(/'/g,"''")}'`).join(',')}) AND party_type='2'`;
+      const r=await fetch(`${ACRIS_PARTIES}?$where=${encodeURIComponent(where)}&$limit=500&$select=document_id,party_type,name,address_1,address_2,city,state,zip`);if(!r.ok)throw Error(`ACRIS parties ${r.status}`);
+      for(const p of await r.json()){const arr=partiesByDoc.get(p.document_id)||[];if(p.name&&!arr.includes(p.name))arr.push(p.name);partiesByDoc.set(p.document_id,arr);}
+      fill.style.width=(67+Math.min(31,Math.round((i+50)/Math.max(1,selected.length)*31)))+'%';sub.textContent=`Buyer records: ${partiesByDoc.size}`;
+    }
+    let matched=0;const cache=[];const now=Date.now();
+    for(const l of candidates){const deed=newestByLead.get(l.id);if(!deed)continue;const names=partiesByDoc.get(deed.document_id)||[];if(!names.length)continue;const ageDays=(now-new Date(deed.recorded_datetime||deed.document_date||0).getTime())/86400000;const value={names,recorded_at:deed.recorded_datetime||deed.document_date,document_id:deed.document_id,freshness:ageDays<=550?'recent_deed':'historical_deed'};if(applyAcrisValue(l,value)){matched++;cache.push(['acris:'+String(l.bbl),value]);}}
+    if(typeof enrichmentCachePut==='function'&&cache.length)await enrichmentCachePut(cache,30);
+    saveState();renderAll();toast(`✓ ACRIS matched ${matched+cachedCount} owners`);info(`ACRIS: ${matched+cachedCount} deed-owner records refreshed`);
+  }catch(e){toast('ACRIS lookup failed');info('ACRIS failed: '+e.message);}
+  finally{prog.classList.remove('open');}
+}
+
 // ── Navigation Helpers ────────────────────────────────────────────────────────
 function nextBestLead() {
   return filterLeads().filter(l => !['closed','not_interested','do_not_knock','not_qualified'].includes(l.status))
@@ -188,151 +345,21 @@ function goLead(l) {
 
 // ── Demo Mode ─────────────────────────────────────────────────────────────────
 function demoMode() {
-  const now = Date.now();
-  const ts  = (hoursAgo, minsAgo=0) => new Date(now - hoursAgo*3600000 - minsAgo*60000).toISOString();
-  const fut = (hoursAhead)           => new Date(now + hoursAhead*3600000).toISOString();
-
-  // Demo account — 3 reps, realistic company
-  saveSettings({ company:'Queens Solar Solutions', territory:'Jamaica / Rosedale / Springfield Gardens', agent_name:'Marcus J.', plan:'team', door_goal:60, appt_goal:3 });
-  saveAccount({
-    company:'Queens Solar Solutions',
-    agents:[
-      { id:'d1', name:'Marcus J.',  email:'marcus@demo.com',  territory:'Jamaica, Queens',           role:'agent' },
-      { id:'d2', name:'Kezia P.',   email:'kezia@demo.com',   territory:'Rosedale, Queens',           role:'agent' },
-      { id:'d3', name:'Tyrese A.',  email:'tyrese@demo.com',  territory:'Springfield Gardens, Queens', role:'agent' }
-    ]
-  });
-  saveSession({ role:'master', name:'Demo Manager', email:'demo@blockbosscrm.com', demo:true });
-
-  const mk = (i, o) => ({
-    id:'demo_'+i, source:'PLUTO', first:'', last:'', addr:'', boro:'Queens',
-    lat:40.697, lng:-73.803, status:'fresh', sun_score:70, notes:'', agent:'',
-    monthly_bill:'', roof_type:'Pitched', solar_status:'no_solar_visible',
-    phone:'', email:'', appt_time:'', callback_due:'', logs:[],
-    created_at:ts(72+i), updated_at:ts(2), ...o
-  });
-
   state.leads = [
-    // ── CLOSED ──────────────────────────────────────────────────────────────────
-    mk(0,{ first:'Wilson', last:'Denise', addr:'183-20 Jamaica Ave', lat:40.6897, lng:-73.7691,
-      status:'closed', sun_score:92, agent:'Marcus J.', monthly_bill:'360', phone:'(718) 555-0101',
-      notes:'CLOSED ✓ Signed contract. $360/mo bill. Full system. Referral to neighbor next door.',
-      logs:[{action:'knocked',note:'First visit',ts:ts(120)},{action:'interested',note:'Very interested',ts:ts(96)},{action:'set',note:'Site visit scheduled',ts:ts(72)},{action:'closed',note:'Contract signed! Full system 🏆',ts:ts(24)}] }),
-
-    // ── APPT SET ─────────────────────────────────────────────────────────────────
-    mk(1,{ first:'Davis', last:'Robert', addr:'126-08 Sutphin Blvd', lat:40.7012, lng:-73.8082,
-      status:'set', sun_score:94, agent:'Marcus J.', monthly_bill:'380', phone:'(718) 555-0147',
-      appt_time:fut(48), notes:'$380 bill. Large south-facing roof. Appointment Thursday 10am. Closer assigned.',
-      logs:[{action:'knocked',note:'Answered door on first knock',ts:ts(26)},{action:'interested',note:'Strong interest — wants savings breakdown',ts:ts(25)},{action:'set',note:'Thursday 10am — wife will be home too',ts:ts(24)}] }),
-
-    mk(2,{ first:'Garcia', last:'Maria', addr:'152-44 Rockaway Blvd', lat:40.6754, lng:-73.7834,
-      status:'set', sun_score:87, agent:'Tyrese A.', monthly_bill:'290', phone:'(929) 555-0263',
-      appt_time:fut(20), notes:'Spanish-speaking. $290/mo. Appointment tomorrow 2pm. Son will translate.',
-      logs:[{action:'knocked',note:'Spanish-speaking homeowner',ts:ts(9)},{action:'interested',note:'Interested — called son for help',ts:ts(8)},{action:'set',note:'Tomorrow 2pm',ts:ts(7)}] }),
-
-    // ── INTERESTED ───────────────────────────────────────────────────────────────
-    mk(3,{ first:'Johnson', last:'Michael', addr:'142-35 Franklin Ave', lat:40.6982, lng:-73.7891,
-      status:'interested', sun_score:91, agent:'Marcus J.', monthly_bill:'280', phone:'(718) 555-0182',
-      notes:'$280 electric bill. Owns home 18 yrs. Both husband and wife on board. Wants savings estimate.',
-      logs:[{action:'knocked',note:'Knocked, both home',ts:ts(30)},{action:'interested',note:'Both on board — wants full estimate',ts:ts(29)}] }),
-
-    mk(4,{ first:'Williams', last:'Patricia', addr:'168-20 109th Ave', lat:40.6934, lng:-73.7756,
-      status:'interested', sun_score:88, agent:'Marcus J.', monthly_bill:'320',
-      notes:'$320/mo. Saw neighbor get solar last year. Comparing quotes. Very warm.',
-      logs:[{action:'knocked',note:'No answer first visit',ts:ts(55)},{action:'knocked',note:'Caught her outside',ts:ts(28)},{action:'interested',note:'Warm — comparing 3 quotes',ts:ts(27)}] }),
-
-    mk(5,{ first:'Thompson', last:'James', addr:'196-12 Linden Blvd', lat:40.6821, lng:-73.7523,
-      status:'interested', sun_score:84, agent:'Kezia P.', monthly_bill:'240',
-      notes:'Retired MTA. Owns home outright. $240/mo. Ready to schedule site visit.',
-      logs:[{action:'knocked',note:'Home all day',ts:ts(10)},{action:'interested',note:'Ready for site visit',ts:ts(9)}] }),
-
-    mk(6,{ first:'Brown', last:'Sandra', addr:'204-11 Hollis Ave', lat:40.7063, lng:-73.7621,
-      status:'interested', sun_score:79, agent:'Kezia P.', monthly_bill:'210', phone:'(718) 555-0199',
-      notes:'$210 bill. Husband not home. Took flyer, will discuss with him.',
-      logs:[{action:'knocked',note:'Spoke with Sandra',ts:ts(4)},{action:'interested',note:'Took flyer — calling back tonight',ts:ts(4)}] }),
-
-    // ── CALLBACKS ────────────────────────────────────────────────────────────────
-    mk(7,{ first:'Martin', last:'Kevin', addr:'111-42 Farmers Blvd', lat:40.6921, lng:-73.7484,
-      status:'callback', sun_score:82, agent:'Tyrese A.', monthly_bill:'270', phone:'(718) 555-0339',
-      callback_due:ts(2), notes:'Wants to speak to wife first. Call back after 5pm. $270 bill, big south roof.',
-      logs:[{action:'knocked',note:'Spoke to Kevin at door',ts:ts(6)},{action:'callback',note:'Callback tonight after 5pm',ts:ts(6)}] }),
-
-    mk(8,{ first:'Anderson', last:'Gloria', addr:'235-15 Merrick Blvd', lat:40.6683, lng:-73.7532,
-      status:'callback', sun_score:76, agent:'Kezia P.', monthly_bill:'195', phone:'(718) 555-0274',
-      callback_due:ts(3), notes:'Wants to call her daughter first. Very sweet. Callback scheduled.',
-      logs:[{action:'knocked',note:'Listened to full pitch',ts:ts(25)},{action:'callback',note:'Call after she talks to daughter',ts:ts(25)}] }),
-
-    mk(9,{ first:'Taylor', last:'Richard', addr:'178-22 Guy Brewer Blvd', lat:40.6849, lng:-73.7698,
-      status:'callback', sun_score:71, agent:'Marcus J.', monthly_bill:'430', phone:'(646) 555-0158',
-      callback_due:fut(3), notes:'Contractor who owns 2 homes. Interested in doing both. Call tonight 7pm.',
-      logs:[{action:'knocked',note:'Owns this + another property on next block',ts:ts(5)},{action:'callback',note:'Call tonight 7pm for both homes',ts:ts(5)}] }),
-
-    // ── NOT HOME ─────────────────────────────────────────────────────────────────
-    mk(10,{ first:'Jackson', last:'Evelyn', addr:'145-33 Springfield Blvd', lat:40.6763, lng:-73.7691,
-      status:'not_home', sun_score:86, agent:'Tyrese A.',
-      notes:'Not home twice. Try weekday morning — PLUTO shows long-term owner. High sun score.',
-      logs:[{action:'knocked',note:'No answer',ts:ts(60)},{action:'not_home',note:'No answer again. Try AM weekday.',ts:ts(30)}] }),
-
-    mk(11,{ first:'Harris', last:'Charles', addr:'119-08 Inwood St', lat:40.6921, lng:-73.8012,
-      status:'not_home', sun_score:78, agent:'Marcus J.',
-      notes:'Car in driveway but no answer. Try late morning.',
-      logs:[{action:'knocked',note:'Car in driveway, no answer',ts:ts(8)},{action:'not_home',note:'Still no answer',ts:ts(3)}] }),
-
-    mk(12,{ first:'Robinson', last:'Shirley', addr:'231-44 148th Rd', lat:40.6712, lng:-73.7523,
-      status:'not_home', sun_score:68, agent:'Kezia P.',
-      notes:'Neighbor said she works until 4pm. Try after 4.',
-      logs:[{action:'knocked',note:'Neighbor confirmed home after 4pm',ts:ts(5)},{action:'not_home',note:'At work',ts:ts(5)}] }),
-
-    mk(13,{ first:'Lewis', last:'Barbara', addr:'189-15 Hollis Ave', lat:40.7063, lng:-73.7584,
-      status:'not_home', sun_score:73, agent:'Tyrese A.',
-      notes:'Lights on inside. Empty driveway. Try evening.',
-      logs:[{action:'knocked',note:'Lights on but no answer',ts:ts(6)}] }),
-
-    // ── KNOCKED ──────────────────────────────────────────────────────────────────
-    mk(14,{ first:'Lee', last:'Anthony', addr:'163-20 Jamaica Ave', lat:40.6897, lng:-73.7723,
-      status:'knocked', sun_score:69, agent:'Marcus J.',
-      notes:'Tenant, not owner. Got owner name from him — Marcus Green. Check PLUTO.',
-      logs:[{action:'knocked',note:'Spoke to tenant, not owner',ts:ts(4)}] }),
-
-    mk(15,{ first:'Walker', last:'Dorothy', addr:'215-08 115th Ave', lat:40.6892, lng:-73.7534,
-      status:'knocked', sun_score:77, agent:'Kezia P.',
-      notes:'Short convo. Busy, asked to come back after lunch.',
-      logs:[{action:'knocked',note:'Come back after 1pm',ts:ts(3)}] }),
-
-    mk(16,{ first:'Hall', last:'Edward', addr:'134-22 238th St', lat:40.7042, lng:-73.7167,
-      status:'knocked', sun_score:65, agent:'Tyrese A.',
-      notes:'In a hurry. Took card. Cold.',
-      logs:[{action:'knocked',note:'In a rush. Took card.',ts:ts(2)}] }),
-
-    mk(17,{ first:'Allen', last:'Frances', addr:'197-33 Linden Blvd', lat:40.6826, lng:-73.7492,
-      status:'knocked', sun_score:81, agent:'Marcus J.',
-      notes:'Listened through screen door. Husband has to approve.',
-      logs:[{action:'knocked',note:'Screen door pitch. Warm.',ts:ts(1)}] }),
-
-    // ── FRESH ────────────────────────────────────────────────────────────────────
-    mk(18,{ first:'Young',     last:'Carolyn', addr:'172-44 130th Ave',     lat:40.6734, lng:-73.7612, status:'fresh', sun_score:89, agent:'Marcus J.', notes:'High sun score. South-facing roof visible from street.' }),
-    mk(19,{ first:'Hernandez', last:'Jose',    addr:'146-30 Rockaway Blvd', lat:40.6801, lng:-73.7867, status:'fresh', sun_score:83, agent:'Kezia P.',  notes:'PLUTO: single-family residential. Owner-occupied.' }),
-    mk(20,{ first:'King',      last:'Betty',   addr:'226-15 Merrick Blvd',  lat:40.6641, lng:-73.7545, status:'fresh', sun_score:77, agent:'Tyrese A.', notes:'Corner lot. Good roof angle. Check back of house.' }),
-    mk(21,{ first:'Wright',    last:'George',  addr:'138-41 Sutphin Blvd',  lat:40.7045, lng:-73.8078, status:'fresh', sun_score:72, notes:'Older home, likely original owner. High bills on this block.' }),
-    mk(22,{ first:'Lopez',     last:'Carmen',  addr:'159-22 Jamaica Ave',   lat:40.6907, lng:-73.7745, status:'fresh', sun_score:80, agent:'Kezia P.',  notes:'No solar visible. Pitched roof.' }),
-
-    // ── NOT INTERESTED / NOT QUALIFIED ──────────────────────────────────────────
-    mk(23,{ first:'Scott', last:'Helen', addr:'201-18 Hollis Ave', lat:40.7081, lng:-73.7601,
-      status:'not_interested', sun_score:62, agent:'Kezia P.',
-      notes:'Already looked into solar last year. Not interested. Do not re-knock.',
-      logs:[{action:'knocked',note:'Spoke with Helen',ts:ts(48)},{action:'not_interested',note:'Already decided against solar.',ts:ts(48)}] }),
-
-    mk(24,{ first:'Mitchell', last:'Frank', addr:'183-44 Baisley Blvd', lat:40.6782, lng:-73.7834,
-      status:'not_qualified', sun_score:21, agent:'Tyrese A.', solar_status:'has_solar',
-      notes:'Panels on roof — existing system. Not a solar prospect. Could be HVAC lead.',
-      logs:[{action:'knocked',note:'Panels visible from street',ts:ts(26)},{action:'not_qualified',note:'Has solar. Possible HVAC lead.',ts:ts(26)}] }),
-  ];
-
-  saveState();
+    ['High Sun Home','42-15 Sample Ave','Queens',40.728,-73.794,'interested',92,'No solar visible. Clean roof line. High bill.'],
+    ['Boiler + Solar Lead','88-20 Demo Blvd','Queens',40.706,-73.821,'callback',86,'Oil heat. Good roof. Wants estimate tomorrow.'],
+    ['Mini Split Opportunity','120 Sample Street','Queens',40.681,-73.835,'set',78,'Old boiler. Asked about rebates and monthly payment.'],
+    ['Already Has Solar','230 Demo Lane','Long Island',40.761,-73.610,'not_qualified',28,'Panels visible. Existing solar.']
+  ].map((r, i) => ({
+    id:'demo_'+Date.now()+'_'+i, source:'Demo Mode', first:r[0], last:'', addr:r[1], boro:r[2],
+    lat:r[3], lng:r[4], status:r[5], sun_score:r[6], notes:r[7],
+    monthly_bill: i < 3 ? '250' : '', solar_status: i === 3 ? 'has_solar' : 'no_solar_visible',
+    assigned_agent: i < 3 ? 'Demo Rep' : '', updated_at:new Date().toISOString(),
+    activity_log:[{type:'demo',note:'Demo lead loaded',at:new Date().toISOString(),agent:'System'}]
+  }));
+  saveState(); saveSession({ role:'master', name:'Demo Master', demo:true });
   document.getElementById('loginOverlay').classList.remove('open');
-  fitLeads();
-  renderAll();
-  toast('✓ Demo loaded — 3 reps · 25 leads · Queens Solar Solutions');
+  renderAll(); toast('✓ Demo mode loaded');
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────

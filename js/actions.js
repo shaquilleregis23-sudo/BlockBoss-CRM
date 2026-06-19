@@ -17,6 +17,21 @@ function saveSettingsForm() {
   saveSettings({ company:val('cfgCompany'), agent_name:val('cfgAgent'), territory:val('cfgTerritory'), plan:val('cfgPlan'), door_goal:val('cfgDoor'), appt_goal:val('cfgAppt'), include_llc:document.getElementById('cfgLLC').checked, allow_verify:document.getElementById('cfgVerify').checked });
   toast('✓ Settings saved'); renderStats();
 }
+function copyReferralLink() {
+  const b=getBilling(), code=b.referral_code;
+  if(!code) return toast('Log in to see your referral link');
+  copyText(`${location.origin}${location.pathname}?ref=${code}`, 'Referral link copied');
+}
+function openBranding() {
+  const b=getBilling(), plan=billingPlan();
+  if(!plan || plan.agents<999) return toast('White-label is an Agency plan feature');
+  modal('🎨 White-Label Branding', `<div class="form-row"><label>Logo URL</label><input id="wlLogo" placeholder="https://yourcompany.com/logo.png" value="${esc(b.logo_url||'')}"></div><div class="form-row"><label>Accent Color</label><input id="wlColor" type="color" value="${esc(b.accent_color||'#58a6ff')}"></div><button class="save-btn blue" data-action="saveBranding">Save Branding</button>`);
+}
+function saveBrandingForm() {
+  const logo=val('wlLogo').trim(), color=val('wlColor');
+  saveBilling({logo_url:logo,accent_color:color}); renderBrand(); closeModal(); toast('✓ Branding saved locally');
+  if(sb && session().email) sb.from('master_accounts').update({logo_url:logo,accent_color:color}).eq('email',session().email);
+}
 function pricing() {
   modal('💳 BlockBoss CRM Pricing', `<div class="metric-grid"><div class="metric"><div class="k">Starter</div><div class="v">$99</div><p class="sub">3 agents · 2,500 leads</p></div><div class="metric"><div class="k">Growth</div><div class="v">$199</div><p class="sub">10 agents · 10k leads</p></div><div class="metric"><div class="k">Office</div><div class="v">$299</div><p class="sub">25 agents · 50k leads</p></div><div class="metric"><div class="k">Setup</div><div class="v">$499</div><p class="sub">Optional onboarding</p></div></div><button class="save-btn green" data-action="openCustomer">Track Customer</button>`);
 }
@@ -116,6 +131,13 @@ function parseAction(e) {
   else if (act === 'loginAsAgent') { const ag = account().agents.find(x => x.id === a.dataset.id); if (ag) saveSession({ role:'agent', name:ag.name, email:ag.email, id:ag.id, territory:ag.territory }); }
   else if (act === 'logout') { localStorage.removeItem(SESSION); openLogin(); }
   else if (act === 'saveSettings') saveSettingsForm();
+  else if (act === 'copyReferral') copyReferralLink();
+  else if (act === 'openBranding') openBranding();
+  else if (act === 'saveBranding') saveBrandingForm();
+  else if (act === 'hpdView') enrichWithHPD('view');
+  else if (act === 'hpdAll') enrichWithHPD('all');
+  else if (act === 'acrisView') enrichWithACRIS('view');
+  else if (act === 'acrisAll') enrichWithACRIS('all');
   else if (act === 'openCustomer') openCustomer();
   else if (act === 'saveCustomer') saveCustomer();
   else if (act === 'openContact') openContact();

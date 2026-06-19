@@ -11,20 +11,22 @@ function openLead(id) {
   const l = state.leads.find(x => x.id === id);
   if (!l) return;
   currentLeadId = id;
-  document.getElementById('shName').textContent = nameOf(l) + (l.entity ? ' 🏢' : '');
+  document.getElementById('shName').textContent = nameOf(l) + (l.joint && l.coowner ? ` + ${l.coowner}` : '') + (l.hpd_enriched ? ' 🔓' : l.acris_owner_names?.length ? ' 📜' : l.entity ? ' 🏢' : l.needs_verify ? ' 🔍' : '');
   const addrEl = document.getElementById('shAddr');
   addrEl.textContent = [l.addr, l.boro, l.zip].filter(Boolean).join(', ');
   if (l.phone) addrEl.innerHTML = addrEl.textContent + `<a href="tel:${digits(l.phone)}" style="color:var(--blue);margin-left:8px;font-size:12px;font-weight:700">📞 ${esc(l.phone)}</a>`;
   const q = leadQuality(l), ss = sunScore(l);
   document.getElementById('sheetBody').innerHTML = `
 ${!['closed','not_interested','do_not_knock','not_qualified'].includes(l.status)?`<button class="save-btn blue" style="font-size:16px;letter-spacing:.3px;margin-bottom:14px" data-lead-action="knockNow">✊ At the Door</button>`:''}
-<div class="pipeline-mini"><span class="${q>=70?'hot':''}">Q${q} Lead Quality</span><span class="${ss>=75?'hot':''}">☀️ ${ss} Sun Score</span><span>👤 ${esc(l.assigned_agent||'Unassigned')}</span><span>📍 ${esc(l.territory||l.boro||'No territory')}</span><span>${esc(l.source||'manual')}</span></div>
+<div class="pipeline-mini"><span class="${q>=70?'hot':''}">Q${q} Lead Quality</span><span class="${ss>=75?'hot':''}">☀️ ${ss} Sun Score</span><span>👤 ${esc(l.assigned_agent||'Unassigned')}</span><span>📍 ${esc(l.territory||l.boro||'No territory')}</span><span>${esc(l.source||'manual')}</span>${l.owner_freshness?`<span class="badge ${l.owner_freshness==='recent_deed'?'hot':'gold'}">${l.owner_freshness==='recent_deed'?'Fresh deed':'Historical deed'}</span>`:''}${syncBadgeHTML(l)}</div>
 <div class="sun-score-card"><div class="sun-score-top"><div><div class="sun-score-title">☀️ Free Sun Potential Score</div><div class="sun-score-reason">Ranks leads using property, bill, roof, solar/HVAC, and status.</div></div><div class="sun-score-num">${ss}</div></div><div class="sun-score-bar"><div class="sun-score-fill" style="width:${ss}%"></div></div><div class="sun-score-reason"><b>${q>=75?'High Priority':q>=50?'Medium Priority':'Low Priority'}</b> · Lead quality ${q}/100${l.nrel_ghi?` · ☀ ${(+l.nrel_ghi).toFixed(1)} kWh/m²/day`:''}</div></div>
 <div class="action-grid"><a class="save-btn blue" style="text-decoration:none;text-align:center" href="${l.phone?'tel:'+digits(l.phone):'#'}">📞 Call</a><a class="save-btn secondary" style="text-decoration:none;text-align:center" href="${l.phone?'sms:'+digits(l.phone):'#'}">💬 Text</a><a class="save-btn gold" style="text-decoration:none;text-align:center" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((l.addr||'')+' '+(l.boro||'')+' NY '+(l.zip||''))}">🧭 Directions</a><button class="save-btn purple" data-lead-action="handoff">📲 Closer</button></div>
 <div class="quick-disp">${DISP.map(d=>`<button class="qd-btn ${l.status===d[0]?'current':''}" data-disp="${d[0]}"><div class="qd-ico">${d[1]}</div><div class="qd-label">${d[2]}</div></button>`).join('')}</div>
 <details class="clean" open><summary>👤 Customer / Sales Info</summary><div class="inner"><div class="form-grid-2"><div class="form-row"><label>First</label><input id="fFirst" value="${esc(l.first||'')}"></div><div class="form-row"><label>Last</label><input id="fLast" value="${esc(l.last||'')}"></div></div><div class="form-grid-2"><div class="form-row"><label>Phone</label><input id="fPhone" value="${esc(l.phone||'')}"></div><div class="form-row"><label>Email</label><input id="fEmail" value="${esc(l.email||'')}"></div></div><div class="form-grid-2"><div class="form-row"><label>Monthly Electric Bill</label><input type="number" id="fBill" value="${esc(l.monthly_bill||'')}"></div><div class="form-row"><label>Credit</label><select id="fCredit"><option>unknown</option><option>720+</option><option>680-720</option><option>640-680</option><option>below 640</option></select></div></div><div class="form-grid-2"><div class="form-row"><label>Assigned Agent</label><input id="fAgent" value="${esc(l.assigned_agent||'')}"></div><div class="form-row"><label>Territory</label><input id="fTerritory" value="${esc(l.territory||l.boro||'')}"></div></div></div></details>
 <details class="clean"><summary>☀️ Solar + HVAC Qualification</summary><div class="inner"><div class="form-grid-2"><div class="form-row"><label>Solar Status</label><select id="fSolar"><option value="unknown">Unknown</option><option value="no_solar_visible">No Solar Visible</option><option value="has_solar">Has Solar</option><option value="good_roof">Good Roof</option><option value="shaded_roof">Shaded Roof</option><option value="needs_bill">Needs Bill</option></select></div><div class="form-row"><label>Heating Type</label><select id="fHeat"><option value="unknown">Unknown</option><option value="gas_boiler">Gas Boiler</option><option value="oil_boiler">Oil Boiler</option><option value="steam">Steam</option><option value="window_ac">Window AC</option><option value="heat_pump">Already Heat Pump</option></select></div></div><div class="form-row"><label>HVAC Opportunity</label><input id="fHVAC" value="${esc(l.hvac_opportunity||'')}" placeholder="mini split, boiler replacement, high heating bill"></div><div class="form-grid-2"><div class="form-row"><label>Gas/Oil Bill</label><input type="number" id="fHeatBill" value="${esc(l.heating_bill||'')}"></div><div class="form-row"><label>Bill Upload / File Name</label><input id="fBillFile" value="${esc(l.bill_file_name||'')}" placeholder="bill.pdf"></div></div><div class="form-row"><label>Roof Notes</label><input id="fRoof" value="${esc(l.roof_notes||'')}"></div></div></details>
 <details class="clean"><summary>📅 Follow-Up / Appointment</summary><div class="inner"><div class="form-grid-2"><div class="form-row"><label>Callback Due</label><input type="datetime-local" id="fCallback" value="${localDT(l.callback_due)}"></div><div class="form-row"><label>Appointment Time</label><input type="datetime-local" id="fAppt" value="${localDT(l.appt_time)}"></div></div><div class="form-grid-2"><div class="form-row"><label>Assigned Closer</label><input id="fCloser" value="${esc(l.assigned_closer||'')}"></div><div class="form-row"><label>Appointment Outcome</label><select id="fOutcome"><option value="none">None</option><option value="confirmed">Confirmed</option><option value="no_show">No Show</option><option value="sat">Sat</option><option value="closed">Closed</option><option value="lost">Lost</option></select></div></div></div></details>
+${l.hpd_enriched?`<details class="clean" open><summary>🔓 HPD-Unmasked Owner</summary><div class="inner"><b>${esc(nameOf(l))}</b><br>Role: ${esc(l.hpd_type||'—')}<br>Owner address: ${esc([l.hpd_business_addr,l.hpd_business_city,l.hpd_business_state,l.hpd_business_zip].filter(Boolean).join(', ')||'—')}<br>Original entity: ${esc(l.original_entity_name||'—')}</div></details>`:''}
+${l.acris_owner_names?.length?`<details class="clean" open><summary>📜 ACRIS Deed Owner</summary><div class="inner"><b>${esc(l.acris_owner_names.join(' & '))}</b><br>Recorded: ${esc(l.acris_recorded_at?new Date(l.acris_recorded_at).toLocaleDateString():'—')}<br>Freshness: ${esc(l.owner_freshness==='recent_deed'?'Recent deed — promoted':'Historical deed — verify')}<br>Document: ${esc(l.acris_document_id||'—')}${l.original_owner_name?`<br>Previous displayed owner: ${esc(l.original_owner_name)}`:''}</div></details>`:''}
 <details class="clean"><summary>🏠 Property / PLUTO</summary><div class="inner">BBL: ${esc(l.bbl||'—')}<br>Class: ${esc(l.bldg_class||'—')}<br>Built: ${esc(l.year_built||'—')}<br>Units: ${esc(l.units||'—')}<br>Lot: ${esc(l.lot_sqft||'—')}<br>Raw owner: ${esc(l.raw_owner||'—')}</div></details>
 <details class="clean"><summary>🕒 Timeline / Notes</summary><div class="inner"><div class="form-row"><label>Notes</label><textarea id="fNotes">${esc(l.notes||'')}</textarea></div>${(l.activity_log||[]).slice(0,10).map(x=>`<div class="mini-item"><div class="nm">${esc(x.note||x.type)}</div><div class="meta">${new Date(x.at).toLocaleString()} · ${esc(x.agent||'CRM')}</div></div>`).join('')||'<p class="sub">No activity yet.</p>'}</div></details>
 <details class="clean"><summary>📷 Photos</summary><div class="inner"><div id="photoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">${(l.photos||[]).map(u=>`<img src="${u}" style="width:100%;border-radius:6px;object-fit:cover;aspect-ratio:1" onclick="window.open('${u}','_blank')">`).join('')}</div><button class="save-btn secondary" onclick="document.getElementById('photoInput').click()">📷 Add Photo</button><input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="uploadPhoto(this)"></div></details>
@@ -129,32 +131,48 @@ function importBackup(file) {
     } catch(e) { toast('Import failed: ' + e.message); }
   }; r.readAsText(file);
 }
-function importCSV(file) {
+async function geocodePurchasedLead(query) {
+  if (!query || query.trim().length < 5) return null;
+  try {
+    const r=await fetch(`https://geosearch.planninglabs.nyc/v2/search?text=${encodeURIComponent(query)}&size=1`);
+    const d=await r.json(), f=d.features?.[0];
+    if(f?.geometry?.coordinates) return {lng:+f.geometry.coordinates[0],lat:+f.geometry.coordinates[1]};
+  } catch(e) {}
+  return null;
+}
+function csvColumn(headers, names) {
+  for(const n of names){const i=headers.indexOf(n); if(i>=0)return i;}
+  for(const n of names){const i=headers.findIndex(h=>h.includes(n)); if(i>=0)return i;}
+  return -1;
+}
+async function importCSV(file) {
   if (!file) return;
-  const r = new FileReader(); r.onload = () => {
-    const rows = parseCSV(r.result);
-    if (rows.length < 2) { toast('CSV empty'); return; }
-    const h = rows[0].map(x => x.trim().toLowerCase()), data = rows.slice(1);
-    if (!confirm(`Import ${data.length} CSV rows?`)) return;
-    data.forEach((row, i) => {
-      const obj = {}; h.forEach((k, j) => obj[k] = row[j] || '');
-      const full = obj.name || obj.owner || obj.full_name || '', parts = full.split(/\s+/);
-      const lead = {
-        id:'csv_'+Date.now()+'_'+i, source:'imported', status:'fresh',
-        first:obj.first||obj.firstname||parts[0]||'',
-        last:obj.last||obj.lastname||parts.slice(1).join(' ')||'Imported Lead',
-        addr:obj.address||obj.addr||obj.street||'', boro:obj.boro||obj.city||obj.borough||'',
-        zip:obj.zip||'', phone:obj.phone||'', email:obj.email||'',
-        monthly_bill:obj.bill||obj.monthly_bill||'',
-        lat:+(obj.lat||obj.latitude)||map.getCenter().lat+(Math.random()-.5)*.02,
-        lng:+(obj.lng||obj.lon||obj.longitude)||map.getCenter().lng+(Math.random()-.5)*.02,
-        assigned_agent:obj.agent||'', territory:obj.territory||settings().territory,
-        updated_at:new Date().toISOString()
-      };
-      state.leads.push(lead);
-    });
-    saveState(); renderAll(); toast('✓ CSV imported');
-  }; r.readAsText(file);
+  const text=await file.text(), rows=parseCSV(text);
+  if(rows.length<2){toast('CSV empty');return;}
+  const h=rows[0].map(x=>x.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')), data=rows.slice(1);
+  if(!confirm(`Import ${data.length} purchased leads? Missing coordinates will be geocoded from the address.`))return;
+  const col={
+    first:csvColumn(h,['first_name','firstname','first']), last:csvColumn(h,['last_name','lastname','surname','last']), full:csvColumn(h,['full_name','owner_name','name','owner']),
+    addr:csvColumn(h,['property_address','site_address','street_address','address_1','address','street']), city:csvColumn(h,['city','borough','boro']), zip:csvColumn(h,['zip_code','zipcode','postal_code','zip']),
+    phone:csvColumn(h,['cell_phone','mobile_phone','primary_phone','phone_number','phone','mobile','cell']), email:csvColumn(h,['email_address','email']), bill:csvColumn(h,['monthly_bill','electric_bill','utility_bill','avg_bill','bill']),
+    lat:csvColumn(h,['latitude','lat']), lng:csvColumn(h,['longitude','lng','lon','long']), notes:csvColumn(h,['notes','comments','remarks']), source:csvColumn(h,['lead_source','vendor','source'])
+  };
+  const get=(row,k)=>col[k]>=0?(row[col[k]]||'').trim():'';
+  const existing=new Set(state.leads.map(leadIdentityKey));
+  const prog=document.getElementById('progress'),fill=document.getElementById('progFill'),sub=document.getElementById('progSub');
+  prog.classList.add('open'); document.getElementById('progTitle').textContent='Importing purchased leads…'; loadCancelled=false;
+  let added=0,dupes=0,failed=0; const newLeads=[];
+  for(let i=0;i<data.length;i++){
+    if(loadCancelled)break; const row=data[i], addr=get(row,'addr'),zip=get(row,'zip');
+    if(!addr){failed++;continue;}
+    let lat=parseFloat(get(row,'lat')),lng=parseFloat(get(row,'lng'));
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)){const g=await geocodePurchasedLead([addr,get(row,'city'),zip,'NY'].filter(Boolean).join(', ')); if(g){lat=g.lat;lng=g.lng;} else {failed++;continue;} await new Promise(r=>setTimeout(r,180));}
+    const full=get(row,'full').split(/\s+/).filter(Boolean), first=get(row,'first')||full[0]||'', last=get(row,'last')||full.slice(1).join(' ')||'Purchased Lead';
+    const vendor=get(row,'source'); const lead={id:'csv_'+Date.now().toString(36)+'_'+i,source:'imported',status:'fresh',first,last,addr:title(addr),boro:get(row,'city'),zip,phone:get(row,'phone'),email:get(row,'email'),monthly_bill:get(row,'bill'),lat,lng,notes:(vendor?`[${vendor}] `:'')+get(row,'notes'),assigned_agent:'',territory:get(row,'city')||settings().territory,updated_at:new Date().toISOString()};
+    const key=leadIdentityKey(lead);if(existing.has(key)){dupes++;continue;}
+    state.leads.push(lead);newLeads.push(lead);existing.add(key);added++; fill.style.width=Math.round((i+1)/data.length*100)+'%'; sub.textContent=`${added} added · ${dupes} duplicates · ${failed} skipped`;
+  }
+  saveState();renderAll();upsertBatch(newLeads);prog.classList.remove('open');toast(`✓ Imported ${added} purchased leads`);
 }
 function parseCSV(text) {
   const rows = []; let row = [], cur = '', q = false;

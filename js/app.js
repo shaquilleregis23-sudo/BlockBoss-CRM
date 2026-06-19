@@ -35,12 +35,19 @@ window._openCreateFromDraft = () => openCreate(window._draftLatLng);
 
 function updateLabelViz() { document.getElementById('map').classList.toggle('show-prop-labels', map.getZoom() >= 17); }
 map.on('zoomend', updateLabelViz);
+let _viewportRenderTimer=null;
+map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,120);});
 updateLabelViz();
 
 // ── Initial Render & Sync ─────────────────────────────────────────────────────
 renderAll();
-if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
-if (session().team_id) { syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); }
+(async()=>{
+  const restored = typeof hydrateLeadsFromIndexedDB === 'function' ? await hydrateLeadsFromIndexedDB() : 0;
+  if (restored) renderAll();
+  await initSecureAuth();
+  if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
+  if (session().team_id) { await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue(); }
+})();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
@@ -97,14 +104,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
       toast('🎉 Subscription activated — ' + STRIPE_PLANS[pk].label + ' plan is live!');
       if (!session()?.role) setTimeout(() => { openLogin(); toast('Log in with your email and PIN to get started'); }, 1400);
     }, 600);
-  }
-})();
-
-// ?demo=1 — auto-load rich demo (shareable link for prospects)
-(() => {
-  if (new URLSearchParams(location.search).get('demo') === '1') {
-    history.replaceState({}, '', location.pathname);
-    setTimeout(() => demoMode(), 200);
   }
 })();
 

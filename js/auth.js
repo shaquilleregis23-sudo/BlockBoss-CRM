@@ -62,9 +62,36 @@ function activateTrial() {
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
+async function membershipForUser(user) {
+  if (!sb || !user?.id) return null;
+  const { data, error } = await sb.from('crm_team_members').select('team_id,role,display_name').eq('user_id', user.id).limit(1);
+  if (error || !data?.length) return null;
+  return data[0];
+}
+async function establishSecureSession(authSession) {
+  const user=authSession?.user; if(!user)return false;
+  const membership=await membershipForUser(user); if(!membership)return false;
+  saveSession({ auth_v2:true, user_id:user.id, role:membership.role||'agent', name:membership.display_name||user.user_metadata?.name||user.email, email:user.email, team_id:membership.team_id });
+  if (sb.realtime && authSession.access_token) sb.realtime.setAuth(authSession.access_token);
+  return true;
+}
+async function initSecureAuth() {
+  if(!sb?.auth)return false;
+  const { data }=await sb.auth.getSession();
+  if(data?.session && await establishSecureSession(data.session))return true;
+  sb.auth.onAuthStateChange((_event,authSession)=>{ if(authSession) setTimeout(()=>establishSecureSession(authSession).then(ok=>{if(ok){syncFromSupabase();initRealtime();}}),0); });
+  return false;
+}
+async function securePasswordLogin(email,password) {
+  if(!sb?.auth || !email || password.length<6)return false;
+  const { data,error }=await sb.auth.signInWithPassword({email,password});
+  if(error || !data?.session)return false;
+  if(!await establishSecureSession(data.session)){await sb.auth.signOut();return false;}
+  return true;
+}
 function openLogin() {
   const a = account(), m = document.getElementById('loginOverlay');
-  m.innerHTML = `<div class="login-box"><h2>Welcome to BlockBoss CRM</h2><p>Owner/master controls teams, leads, assignments and setup. Agents see assigned leads only.</p><div class="login-choice" style="grid-template-columns:1fr 1fr 1fr"><button class="active" data-login-role="master">👑 Master</button><button data-login-role="agent">👥 Agent</button><button data-login-role="signup" style="background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.35);color:var(--green)">✨ Sign Up</button></div><div id="loginSection"><div class="form-row"><label>Email / username</label><input id="loginEmail" autocomplete="username" value="${esc(a.master_email||'')}"></div><div class="form-row"><label>PIN / password</label><input id="loginPin" type="password" autocomplete="current-password"></div><button class="save-btn blue" data-action="doLogin">Login</button><button class="save-btn secondary" data-action="demoMode">Try Demo Mode</button><p class="sub" style="text-align:center;margin-top:8px"><span data-action="openPinReset" style="color:var(--blue);cursor:pointer;font-size:12px">Forgot PIN?</span></p></div><div id="signupSection" style="display:none"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">${Object.entries(STRIPE_PLANS).map(([k, p]) => `<div data-su-plan="${k}" onclick="window._suPlan=this.dataset.suPlan;document.querySelectorAll('[data-su-plan]').forEach(c=>{c.style.cssText=c.style.cssText.replace(/border:[^;]+/,'border:1px solid var(--border)');c.style.background=''});this.style.border='2px solid var(--blue)';this.style.background='rgba(88,166,255,.08)'" style="${k==='team'?'border:2px solid rgba(88,166,255,.5);background:rgba(88,166,255,.08)':'border:1px solid var(--border)'};border-radius:12px;padding:8px;cursor:pointer;text-align:center;transition:all .15s"><div style="font-weight:700;font-size:12px">${p.label}</div><div style="font-size:18px;font-weight:800;color:var(--blue)">$${p.price}</div><div style="font-size:9px;color:var(--muted)">/mo</div><div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.2">${p.desc.split('·')[0].trim()}</div></div>`).join('')}</div><div class="form-row"><label>Your Name</label><input id="suName" placeholder="John Smith"></div><div class="form-row"><label>Company Name</label><input id="suCompany" placeholder="Acme Solar LLC"></div><div class="form-row"><label>Work Email</label><input id="suEmail" type="email" placeholder="you@company.com" autocomplete="email"></div><div class="form-row"><label>Choose a PIN (4–6 digits)</label><input id="suPin" type="password" maxlength="6" placeholder="e.g. 9876" inputmode="numeric"></div><button class="save-btn green" data-action="doSignup">Continue to Payment →</button></div><button class="save-btn secondary" data-action="closeLogin">Close</button><p class="sub" style="margin-top:10px">Already have an account? Switch to Master or Agent tab above.</p></div>`;
+  m.innerHTML = `<div class="login-box"><h2>Welcome to BlockBoss CRM</h2><p>Owner/master controls teams, leads, assignments and setup. Agents see assigned leads only.</p><div class="login-choice" style="grid-template-columns:1fr 1fr 1fr"><button class="active" data-login-role="master">👑 Master</button><button data-login-role="agent">👥 Agent</button><button data-login-role="signup" style="background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.35);color:var(--green)">✨ Sign Up</button></div><div id="loginSection"><div class="form-row"><label>Email / username</label><input id="loginEmail" autocomplete="username" value="${esc(a.master_email||'')}"></div><div class="form-row"><label>Password / legacy PIN</label><input id="loginPin" type="password" autocomplete="current-password"></div><button class="save-btn blue" data-action="doLogin">Login</button><button class="save-btn secondary" data-action="demoMode">Try Demo Mode</button><p class="sub" style="text-align:center;margin-top:8px"><span data-action="openPinReset" style="color:var(--blue);cursor:pointer;font-size:12px">Forgot PIN?</span></p></div><div id="signupSection" style="display:none"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">${Object.entries(STRIPE_PLANS).map(([k, p]) => `<div data-su-plan="${k}" onclick="window._suPlan=this.dataset.suPlan;document.querySelectorAll('[data-su-plan]').forEach(c=>{c.style.cssText=c.style.cssText.replace(/border:[^;]+/,'border:1px solid var(--border)');c.style.background=''});this.style.border='2px solid var(--blue)';this.style.background='rgba(88,166,255,.08)'" style="${k==='team'?'border:2px solid rgba(88,166,255,.5);background:rgba(88,166,255,.08)':'border:1px solid var(--border)'};border-radius:12px;padding:8px;cursor:pointer;text-align:center;transition:all .15s"><div style="font-weight:700;font-size:12px">${p.label}</div><div style="font-size:18px;font-weight:800;color:var(--blue)">$${p.price}</div><div style="font-size:9px;color:var(--muted)">/mo</div><div style="font-size:9px;color:var(--muted);margin-top:3px;line-height:1.2">${p.desc.split('·')[0].trim()}</div></div>`).join('')}</div><div class="form-row"><label>Your Name</label><input id="suName" placeholder="John Smith"></div><div class="form-row"><label>Company Name</label><input id="suCompany" placeholder="Acme Solar LLC"></div><div class="form-row"><label>Work Email</label><input id="suEmail" type="email" placeholder="you@company.com" autocomplete="email"></div><div class="form-row"><label>Choose a password (6+ characters)</label><input id="suPin" type="password" minlength="6" maxlength="72" placeholder="6+ characters"></div><button class="save-btn green" data-action="doSignup">Continue to Payment →</button></div><button class="save-btn secondary" data-action="closeLogin">Close</button><p class="sub" style="margin-top:10px">Already have an account? Switch to Master or Agent tab above.</p></div>`;
   window._loginRole = 'master';
   if (!window._suPlan) window._suPlan = 'team';
   m.classList.add('open');
@@ -72,6 +99,13 @@ function openLogin() {
 async function doLogin() {
   const email = val('loginEmail').toLowerCase(), pin = val('loginPin'), role = window._loginRole || 'master';
   setSyncDot('busy');
+  // Supabase Auth is attempted first. Legacy PIN lookup remains during the
+  // migration window so the original shared production data keeps working.
+  if (await securePasswordLogin(email,pin)) {
+    document.getElementById('loginOverlay').classList.remove('open'); toast('✓ Secure login');
+    await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue();
+    return;
+  }
   const sbData = await sbLookup(email, pin, role);
   if (sbData) {
     saveSession({ role, name:sbData.name, email:sbData.email||email, team_id:sbData.team_id, pin });
@@ -108,13 +142,22 @@ async function doSignup() {
   const name = val('suName').trim(), company = val('suCompany').trim(), email = val('suEmail').trim().toLowerCase(), pin = val('suPin').trim(), plan_key = window._suPlan || 'team';
   if (!name || !email || !pin) { toast('Please fill in name, email and PIN'); return; }
   if (!/\S+@\S+\.\S+/.test(email)) { toast('Enter a valid email address'); return; }
-  if (pin.length < 4) { toast('PIN must be at least 4 digits'); return; }
+  if (pin.length < 6) { toast('Password must be at least 6 characters'); return; }
   const btn = document.querySelector('[data-action="doSignup"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
   try {
     const res = await fetch(SB_URL + '/functions/v1/pre-register', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY}, body:JSON.stringify({ name, company, email, pin, plan_key, ref:localStorage.getItem('m2_ref')||undefined }) });
     const data = await res.json();
     if (!res.ok || data.error) { toast('Signup error: ' + (data.error||res.statusText)); if (btn) { btn.disabled=false; btn.textContent='Continue to Payment →'; } return; }
+    // Create the secure Auth identity in parallel with the existing billing
+    // registration. A 6+ character password is required by Supabase Auth.
+    if (sb?.auth && pin.length >= 6) {
+      const authResult = await sb.auth.signUp({ email, password:pin, options:{ data:{ name, company } } });
+      if (!authResult.error && authResult.data?.session) {
+        const boot = await sb.rpc('bootstrap_crm_team', { company_name:company, member_name:name });
+        if (!boot.error) await establishSecureSession(authResult.data.session);
+      }
+    }
     saveBilling({ billing_email:email, plan_key, status:'pending' });
     document.getElementById('loginOverlay').classList.remove('open');
     toast(data.existing ? 'Account found — opening payment…' : 'Account created — opening Stripe…');
@@ -161,7 +204,7 @@ function showAcceptInvite(token) {
 async function doAcceptInvite() {
   const token = window._inviteToken, pin = val('invAccPin').trim();
   if (!token) { toast('Invalid invite link'); return; }
-  if (pin.length < 4) { toast('PIN must be at least 4 digits'); return; }
+  if (pin.length < 6) { toast('Password must be at least 6 characters'); return; }
   const btn = document.querySelector('[data-action="doAcceptInvite"]');
   if (btn) { btn.disabled=true; btn.textContent='Activating…'; }
   try {

@@ -5,6 +5,10 @@ const sat    = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services
 const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', { attribution:'', maxZoom:19, subdomains:'abcd', opacity:.9 });
 dark.addTo(map);
 L.control.zoom({ position:'bottomright' }).addTo(map);
+const markerLayer = typeof L.markerClusterGroup === 'function'
+  ? L.markerClusterGroup({ chunkedLoading:true, chunkInterval:80, chunkDelay:24, disableClusteringAtZoom:17, maxClusterRadius:46, removeOutsideVisibleBounds:true })
+  : L.layerGroup();
+markerLayer.addTo(map);
 
 // ── Marker Rendering ──────────────────────────────────────────────────────────
 function leadIcon(l) {
@@ -14,14 +18,18 @@ function leadIcon(l) {
   return L.divIcon({ className:'', html:`<div class="sun-wrap"><div class="dot-pin ${markerClass(l)}"></div>${label}</div>`, iconSize:[10,10], iconAnchor:[5,5], popupAnchor:[0,-8] });
 }
 function renderMarkers() {
-  Object.values(markers).forEach(m => map.removeLayer(m));
+  markerLayer.clearLayers();
   markers = {};
-  filterLeads().slice(0, 6000).forEach(l => {
+  let rows=filterLeads();
+  const zoom=map.getZoom(), bounds=map.getBounds().pad(.35);
+  if(zoom>=12) rows=rows.filter(l=>l.lat&&l.lng&&bounds.contains([+l.lat,+l.lng]));
+  else if(rows.length>8000) rows=rows.slice().sort((a,b)=>leadQuality(b)-leadQuality(a)).slice(0,8000);
+  rows.slice(0,14000).forEach(l => {
     if (!l.lat || !l.lng) return;
-    const m = L.marker([+l.lat, +l.lng], { icon:leadIcon(l) }).addTo(map);
+    const m = L.marker([+l.lat, +l.lng], { icon:leadIcon(l) });
     m.on('click', () => openLead(l.id));
     m.bindPopup(`<b>${esc(nameOf(l))}</b><br>${esc(l.addr||'')}<br>☀ ${sunScore(l)} · Q${leadQuality(l)} · ${LABEL[l.status||'fresh']}`);
-    markers[l.id] = m;
+    markerLayer.addLayer(m); markers[l.id] = m;
   });
 }
 function updateMarker(l) { if (markers[l.id]) markers[l.id].setIcon(leadIcon(l)); }
@@ -29,7 +37,7 @@ function updateMarker(l) { if (markers[l.id]) markers[l.id].setIcon(leadIcon(l))
 // ── Filter Bar ────────────────────────────────────────────────────────────────
 function renderFilter() {
   const bar = document.getElementById('filterBar'), arr = scopedLeads();
-  const filters = [['all','All'],['hot','🔥 Hot'],['high_sun','☀️ Sun'],['fresh','Fresh'],['knocked','Knock'],['not_home','Not Home'],['interested','Interested'],['callback','Callback'],['set','Set'],['sat','Sat'],['closed','Closed'],['do_not_knock','DNK'],['pluto','PLUTO'],['manual','Manual'],['imported','CSV'],['entity','LLC'],['assigned','Assigned']];
+  const filters = [['all','All'],['hot','🔥 Hot'],['high_sun','☀️ Sun'],['fresh','Fresh'],['knocked','Knock'],['not_home','Not Home'],['interested','Interested'],['callback','Callback'],['set','Set'],['sat','Sat'],['closed','Closed'],['do_not_knock','DNK'],['pluto','PLUTO'],['manual','Manual'],['imported','CSV'],['entity','LLC'],['hpd','🔓 HPD'],['acris','📜 ACRIS'],['joint','👥 Joint'],['verify','🔍 Verify'],['assigned','Assigned']];
   const counts = {}; filters.forEach(([k]) => counts[k] = filterLeadsBy(k, arr).length);
   const active = filters.find(x => x[0] === state.filter) || filters[0];
   document.getElementById('filterToggle').textContent = `Filter: ${active[1]} ${counts[active[0]]||0} ▾`;
