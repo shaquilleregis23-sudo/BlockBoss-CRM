@@ -13,6 +13,21 @@ function openContact() {
   modal('📲 Book Demo Contact Setup', `<div class="form-grid-2"><div class="form-row"><label>Name</label><input id="ctName" value="${esc(c.name||'')}"></div><div class="form-row"><label>Phone</label><input id="ctPhone" value="${esc(c.phone||'')}"></div></div><div class="form-row"><label>Email</label><input id="ctEmail" value="${esc(c.email||'')}"></div><div class="form-row"><label>Booking Link</label><input id="ctBooking" value="${esc(c.booking||'')}"></div><div class="form-row"><label>CTA</label><textarea id="ctCTA">${esc(c.cta||'')}</textarea></div><button class="save-btn green" data-action="saveContact">Save Contact</button>`);
 }
 function saveContactForm() { saveContact({ name:val('ctName'), phone:val('ctPhone'), email:val('ctEmail'), booking:val('ctBooking'), cta:val('ctCTA') }); closeModal(); renderStats(); toast('✓ Contact saved'); }
+async function refreshMaintenancePanel(){
+  const el=document.getElementById('maintenanceContent');if(!el||!sb||!session().team_id)return;
+  const {data,error}=await sb.from('maintenance_runs').select('*').eq('team_id',session().team_id).order('started_at',{ascending:false}).limit(8);
+  if(error){el.innerHTML='<p class="sub">Maintenance history unavailable.</p>';return;}
+  const rows=data||[],latest=t=>rows.find(r=>r.job_type===t),backup=latest('backup'),owners=latest('owner_refresh');
+  const line=(r,empty)=>!r?empty:`<b style="color:${r.status==='success'?'var(--green)':'var(--red)'}">${esc(r.status)}</b> · ${new Date(r.started_at).toLocaleString()} · ${r.processed||0} processed${r.details?.matched!=null?' · '+r.details.matched+' matched':''}`;
+  el.innerHTML=`<div class="mini-item"><div class="nm">🔐 Latest encrypted backup</div><div class="meta">${line(backup,'No backup recorded')}</div></div><div class="mini-item"><div class="nm">🏠 Latest owner refresh</div><div class="meta">${line(owners,'No refresh recorded')}</div></div>`;
+}
+async function runMaintenanceJob(action){
+  if(!sb||!session().auth_v2)return toast('Secure login required');
+  const label=action==='backup'?'backup':'owner refresh';toast(`Starting ${label}…`);
+  const {data,error}=await sb.functions.invoke('crm-maintenance',{body:{action}});
+  if(error||!data?.ok){toast(`${label} failed`);return;}
+  const r=data.results?.[0]||{};toast(action==='backup'?`✓ Backup saved · ${r.processed||0} leads`:`✓ Owners refreshed · ${r.matched||0} matched`);refreshMaintenancePanel();
+}
 function saveSettingsForm() {
   saveSettings({ company:val('cfgCompany'), agent_name:val('cfgAgent'), territory:val('cfgTerritory'), plan:val('cfgPlan'), door_goal:val('cfgDoor'), appt_goal:val('cfgAppt'), include_llc:document.getElementById('cfgLLC').checked, allow_verify:document.getElementById('cfgVerify').checked });
   toast('✓ Settings saved'); renderStats();
@@ -141,6 +156,8 @@ function parseAction(e) {
   else if (act === 'hpdAll') enrichWithHPD('all');
   else if (act === 'acrisView') enrichWithACRIS('view');
   else if (act === 'acrisAll') enrichWithACRIS('all');
+  else if (act === 'runBackupNow') runMaintenanceJob('backup');
+  else if (act === 'runOwnerRefresh') runMaintenanceJob('owner_refresh');
   else if (act === 'openCustomer') openCustomer();
   else if (act === 'saveCustomer') saveCustomer();
   else if (act === 'openContact') openContact();
