@@ -3,6 +3,28 @@
 
 begin;
 
+-- Abort safely unless every legacy login has a matching Auth membership.
+do $$ begin
+  if not exists (select 1 from public.crm_team_members where role in ('master','manager')) then
+    raise exception 'RLS cutover blocked: no migrated master membership';
+  end if;
+  if exists (
+    select 1 from public.master_accounts a
+    where exists (select 1 from public.leads l where l.team_id::text=a.team_id::text)
+    and not exists (
+      select 1 from public.crm_team_members m join auth.users u on u.id=m.user_id
+      where m.role in ('master','manager') and lower(u.email)=lower(a.email) and m.team_id=a.team_id::text
+    )
+  ) then raise exception 'RLS cutover blocked: an existing master login is not migrated'; end if;
+  if exists (
+    select 1 from public.agent_accounts a
+    where not exists (
+      select 1 from public.crm_team_members m join auth.users u on u.id=m.user_id
+      where m.role='agent' and lower(u.email)=lower(a.email) and m.team_id=a.team_id::text
+    )
+  ) then raise exception 'RLS cutover blocked: an existing agent login is not migrated'; end if;
+end $$;
+
 -- Leads
 alter table public.leads enable row level security;
 do $$ declare p record; begin
