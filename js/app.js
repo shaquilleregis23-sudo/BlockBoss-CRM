@@ -14,6 +14,12 @@ window.addEventListener('orientationchange', () => setTimeout(syncVisibleViewpor
 window.visualViewport?.addEventListener('resize', syncVisibleViewport, { passive:true });
 window.visualViewport?.addEventListener('scroll', syncVisibleViewport, { passive:true });
 
+// One-hand gesture: pull the lead sheet down from its header to close it.
+let sheetTouchY=0,sheetTouchX=0;
+const leadSheet=document.getElementById('sheet');
+leadSheet.addEventListener('touchstart',e=>{const t=e.touches[0];sheetTouchY=t.clientY;sheetTouchX=t.clientX;},{passive:true});
+leadSheet.addEventListener('touchend',e=>{const t=e.changedTouches[0],dy=t.clientY-sheetTouchY,dx=Math.abs(t.clientX-sheetTouchX);if(dy>85&&dx<70&&(e.target.closest('.sheet-header,.sheet-handle')||leadSheet.scrollTop<8)){navigator.vibrate?.(12);closeSheet();}},{passive:true});
+
 document.getElementById('filterToggle').onclick = e => { e.stopPropagation(); document.getElementById('filterBar').classList.toggle('open'); };
 document.getElementById('fieldToggle').onclick  = e => { e.stopPropagation(); document.getElementById('fieldMenu').classList.toggle('open'); };
 document.addEventListener('click', e => {
@@ -59,6 +65,8 @@ updateLabelViz();
 // ── Initial Render & Sync ─────────────────────────────────────────────────────
 renderAll();
 updateOfflineUI();
+scheduleCallbackNotifs();
+setInterval(checkDueCallbacks,30000);
 (async()=>{
   const restored = typeof hydrateLeadsFromIndexedDB === 'function' ? await hydrateLeadsFromIndexedDB() : 0;
   if (restored) renderAll();

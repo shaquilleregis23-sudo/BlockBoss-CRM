@@ -373,14 +373,21 @@ async function requestNotifPerm() {
   if (!('Notification' in window) || Notification.permission !== 'default') return;
   await Notification.requestPermission();
 }
+const callbackTimers=new Map();
 function scheduleCallbackNotifs() {
-  if (Notification.permission !== 'granted') return;
+  callbackTimers.forEach(t=>clearTimeout(t));callbackTimers.clear();
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const now = Date.now();
   scopedLeads().filter(l => l.callback_due || l.appt_time).forEach(l => {
     const dt = new Date(l.callback_due || l.appt_time), ms = dt - now;
     if (isNaN(dt) || ms < 0 || ms > 86400000) return;
-    setTimeout(() => new Notification('BlockBoss CRM — Follow-up due', { body:`${nameOf(l)} · ${l.addr||''}`, tag:'cb-'+l.id, silent:false }), ms);
+    callbackTimers.set(l.id,setTimeout(() => new Notification('BlockBoss CRM — Follow-up due', { body:`${nameOf(l)} · ${l.addr||''}`, tag:'cb-'+l.id, silent:false }), ms));
   });
+}
+function checkDueCallbacks(){
+  const now=Date.now(),recent=now-60000;
+  const l=scopedLeads().find(x=>x.callback_due&&new Date(x.callback_due)<=now&&new Date(x.callback_due)>=recent&&!x.callback_alerted_at);
+  if(!l)return;l.callback_alerted_at=new Date().toISOString();saveState();toast(`📞 Callback due: ${nameOf(l)}`);
 }
 
 // ── Neighborhoods Modal ───────────────────────────────────────────────────────
@@ -389,4 +396,35 @@ function neighborhoods() {
 <h3>Queens</h3><div class="action-grid">${NEIGHBORHOODS.queens.map((n, i) => `<button data-action="loadNbh" data-boro="queens" data-i="${i}">${n[0]}</button>`).join('')}</div>
 <h3 style="margin-top:14px">Brooklyn</h3><div class="action-grid">${NEIGHBORHOODS.brooklyn.map((n, i) => `<button data-action="loadNbh" data-boro="brooklyn" data-i="${i}">${n[0]}</button>`).join('')}</div>`;
   modal('📍 Neighborhood Loader', html);
+}
+
+// ── Offline Neighborhood Downloads ───────────────────────────────────────────
+function offlineAreaMeta(){try{return JSON.parse(localStorage.getItem('m2_offline_areas_v1'))||{};}catch(e){return {};}}
+function saveOfflineAreaMeta(v){localStorage.setItem('m2_offline_areas_v1',JSON.stringify(v));}
+function offlinePlutoUrl(bounds){
+  const where=[`latitude > ${bounds[0]}`,`latitude < ${bounds[2]}`,`longitude > ${bounds[1]}`,`longitude < ${bounds[3]}`,`(borough='BK' OR borough='QN')`,`(starts_with(bldgclass,'A') OR starts_with(bldgclass,'B'))`,`ownername IS NOT NULL`].join(' AND ');
+  return `${PLUTO}?$where=${encodeURIComponent(where)}&$limit=50000&$select=bbl,address,borough,bldgclass,ownername,yearbuilt,lotarea,assesstot,unitsres,zipcode,latitude,longitude`;
+}
+function tileXY(lat,lng,z){const n=2**z;return{x:Math.floor((lng+180)/360*n),y:Math.floor((1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n)};}
+function offlineTiles(bounds){
+  const out=[];for(let z=14;z<=16;z++){const nw=tileXY(bounds[2],bounds[1],z),se=tileXY(bounds[0],bounds[3],z);for(let x=nw.x;x<=se.x;x++)for(let y=nw.y;y<=se.y;y++)out.push(`https://a.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`);}
+  if(out.length<=240)return out;const sampled=[];for(let i=0;i<240;i++)sampled.push(out[Math.floor(i*(out.length-1)/239)]);return [...new Set(sampled)];
+}
+async function offlineNeighborhoods(){
+  const meta=offlineAreaMeta(),rows=[];
+  for(const boro of ['queens','brooklyn'])for(let i=0;i<NEIGHBORHOODS[boro].length;i++){const n=NEIGHBORHOODS[boro][i],k=`${boro}-${i}`,saved=meta[k];rows.push(`<div class="offline-area-row" id="offline-${k}"><div class="area-info"><b>${esc(n[0])}</b><span>${saved?`✓ Ready · ${new Date(saved.at).toLocaleDateString()} · ${saved.homes||0} homes`:'Not downloaded'}</span></div><button data-action="downloadOfflineArea" data-boro="${boro}" data-i="${i}">${saved?'Refresh':'Download'}</button></div>`);}
+  modal('📥 Offline Neighborhoods',`<p class="sub">Download homeowner records and map tiles before your shift. Keep the app open until each area says Ready.</p><div id="offlineAreaProgress"></div>${rows.join('')}`);
+  for(const boro of ['queens','brooklyn'])for(let i=0;i<NEIGHBORHOODS[boro].length;i++){const n=NEIGHBORHOODS[boro][i],cached=await territoryCacheGet(n[1],true);if(cached?.length){const el=document.querySelector(`#offline-${boro}-${i} .area-info span`);if(el&&!meta[`${boro}-${i}`])el.textContent=`Property cache found · ${cached.length} homes`;}}
+}
+async function downloadNeighborhoodOffline(boro,i){
+  const n=NEIGHBORHOODS[boro]?.[i];if(!n)return;if(!navigator.onLine)return toast('Connect to download this area');
+  const row=document.getElementById(`offline-${boro}-${i}`),status=row?.querySelector('.area-info span'),btn=row?.querySelector('button');if(btn)btn.disabled=true;
+  try{
+    if(status)status.textContent='Downloading homeowner records…';let data=await territoryCacheGet(n[1]);
+    if(!data){const r=await fetch(offlinePlutoUrl(n[1]));if(!r.ok)throw Error(`PLUTO ${r.status}`);data=await r.json();await territoryCachePut(n[1],n[0],data,14);}
+    const tiles=offlineTiles(n[1]);let done=0;
+    for(let x=0;x<tiles.length;x+=6){await Promise.all(tiles.slice(x,x+6).map(u=>fetch(u,{mode:'no-cors'}).catch(()=>null)));done=Math.min(x+6,tiles.length);if(status)status.textContent=`Caching map ${done}/${tiles.length}…`;}
+    const meta=offlineAreaMeta();meta[`${boro}-${i}`]={at:new Date().toISOString(),homes:data.length,tiles:tiles.length,name:n[0]};saveOfflineAreaMeta(meta);
+    if(status)status.textContent=`✓ Ready offline · ${data.length} homes · ${tiles.length} map tiles`;if(btn){btn.disabled=false;btn.textContent='Refresh';}navigator.vibrate?.(20);toast(`✓ ${n[0]} ready offline`);
+  }catch(e){if(status)status.textContent='Download failed · tap to retry';if(btn)btn.disabled=false;toast('Offline download failed');console.warn(e);}
 }

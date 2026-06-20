@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v11-offline-performance';
+const CACHE = 'm2-hybrid-production-v12-field-workflow';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
@@ -26,7 +26,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).then(res=>{if(res.ok)caches.open(CACHE).then(c=>c.put('./index.html',res.clone()));return res;}).catch(()=>caches.match('./index.html')));return;}
   const isTile=/cartocdn\.com$/.test(url.hostname)||/arcgisonline\.com$/.test(url.hostname);
-  if(isTile){event.respondWith(caches.open(TILE_CACHE).then(async cache=>{const hit=await cache.match(event.request);if(hit)return hit;try{const res=await fetch(event.request);if(res.ok||res.type==='opaque'){cache.put(event.request,res.clone());trimCache(TILE_CACHE,700);}return res;}catch(e){return new Response('',{status:503,statusText:'Offline tile unavailable'});}}));return;}
+  if(isTile){event.respondWith(caches.open(TILE_CACHE).then(async cache=>{const hit=await cache.match(event.request);if(hit)return hit;try{const res=await fetch(event.request);if(res.ok||res.type==='opaque'){cache.put(event.request,res.clone());trimCache(TILE_CACHE,2200);}return res;}catch(e){return new Response('',{status:503,statusText:'Offline tile unavailable'});}}));return;}
   if (url.origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request,{ignoreSearch:true}).then(cached => {

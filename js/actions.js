@@ -80,6 +80,27 @@ function runTest() {
   toast(problems.length ? 'Check: ' + problems.join(', ') : '✓ Test Mode passed. CRM is demo-ready.');
 }
 
+// ── Callback Scheduler ───────────────────────────────────────────────────────
+function openCallbackScheduler(l){
+  if(!l)return;
+  const suggested=new Date(Date.now()+2*3600000);
+  modal('📞 Schedule Callback',`<p class="sub"><b>${esc(nameOf(l))}</b> · ${esc(l.addr||'')}</p><div class="callback-presets"><button data-action="scheduleCallback" data-minutes="30">30 min</button><button data-action="scheduleCallback" data-minutes="120">2 hours</button><button data-action="scheduleCallback" data-minutes="1440">Tomorrow</button><button data-action="scheduleCallback" data-minutes="4320">3 days</button></div><div class="form-row"><label>Custom date and time</label><input type="datetime-local" id="callbackWhen" value="${localDT(l.callback_due||suggested.toISOString())}"></div><div class="form-row"><label>Callback note</label><input id="callbackNote" placeholder="Best time, decision maker, bill needed…"></div><button class="save-btn gold" data-action="scheduleCallback">Save Callback</button><button class="save-btn secondary" data-action="openFollowups">View Follow-Up Board</button>`);
+}
+function saveScheduledCallback(btn){
+  const l=state.leads.find(x=>x.id===currentLeadId);if(!l)return toast('Lead is no longer open');
+  const mins=+btn.dataset.minutes||0,when=mins?new Date(Date.now()+mins*60000):new Date(val('callbackWhen'));
+  if(isNaN(when))return toast('Choose a callback date and time');
+  l.status='callback';l.callback_due=when.toISOString();const note=val('callbackNote');if(note)l.notes=[l.notes,note].filter(Boolean).join('\n');
+  addLog(l,'callback',`Callback scheduled ${when.toLocaleString()}${note?' · '+note:''}`);saveState();upsertLead(l);requestNotifPerm().then(scheduleCallbackNotifs);
+  navigator.vibrate?.(18);closeModal();closeSheet();renderAll();toast(`📞 Callback ${when.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}`);
+}
+function openFollowups(){
+  const now=Date.now(),endToday=new Date();endToday.setHours(23,59,59,999);
+  const rows=scopedLeads().filter(l=>l.callback_due).sort((a,b)=>new Date(a.callback_due)-new Date(b.callback_due));
+  const section=(title,arr,color)=>`<h3 style="margin:14px 0 8px;color:${color}">${title} · ${arr.length}</h3>${arr.slice(0,30).map(l=>`<div class="mini-item" data-open="${l.id}"><div class="nm">${esc(nameOf(l))}</div><div class="meta">${new Date(l.callback_due).toLocaleString()} · ${esc(l.addr||'')}</div></div>`).join('')||'<p class="sub">None</p>'}`;
+  modal('📅 Follow-Up Board',section('Overdue',rows.filter(l=>new Date(l.callback_due)<now),'var(--red)')+section('Today',rows.filter(l=>new Date(l.callback_due)>=now&&new Date(l.callback_due)<=endToday),'var(--gold)')+section('Upcoming',rows.filter(l=>new Date(l.callback_due)>endToday),'var(--blue)'));
+}
+
 // ── Main Action Dispatcher ────────────────────────────────────────────────────
 function parseAction(e) {
   const a = e.target.closest('[data-action], [data-tool], [data-disp], [data-after], [data-lead-action], [data-open], [data-login-role], [data-agent-tab]');
@@ -109,6 +130,7 @@ function parseAction(e) {
   // Disposition tap
   if (a.dataset.disp) {
     const l = state.leads.find(x => x.id === currentLeadId); if (!l) return;
+    if(a.dataset.disp==='callback'){openCallbackScheduler(l);return;}
     l.status = a.dataset.disp; l.sun_score = sunScore(l);
     addLog(l, a.dataset.disp, `${LABEL[a.dataset.disp]} saved`);
     saveState(); upsertLead(l);
@@ -119,6 +141,7 @@ function parseAction(e) {
       fetch(SB_URL + '/functions/v1/send-appt-confirm', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY}, body:JSON.stringify({ lead_phone:l.phone||'', lead_email:l.email||'', lead_name:(l.first||'')+' '+(l.last||''), lead_addr:l.addr||'', rep_name:agentName(), appt_time:l.appt_time||'', company_name:_sg.company||'BlockBoss CRM' }) }).catch(() => {});
     }
     a.classList.add('saved'); a.innerHTML = '<div class="qd-ico">✓</div><div class="qd-label">Saved</div>';
+    navigator.vibrate?.(16);
     toast(`✓ ${LABEL[l.status]}`); renderAll();
     const after = localStorage.getItem(AFTER) || 'next';
     if (after === 'next') setTimeout(() => { closeSheet(); goLead(nextBestLead()); }, 420);
@@ -170,6 +193,8 @@ function parseAction(e) {
   else if (act === 'openLeaderboard') openLeaderboard();
   else if (act === 'resetData') { if (confirm('Reset all local leads?')) { state={leads:[],filter:'all'}; saveState(); renderAll(); } }
   else if (act === 'repMode' || act === 'today') repMode();
+  else if (act === 'openFollowups') openFollowups();
+  else if (act === 'scheduleCallback') saveScheduledCallback(a);
   else if (act === 'next' || act === 'nextBest') goLead(nextBestLead());
   else if (act === 'locate') locate();
   else if (act === 'satellite') toggleSatellite();
@@ -180,6 +205,8 @@ function parseAction(e) {
   else if (act === 'add') openCreate();
   else if (act === 'loadArea') { const b = map.getBounds(); loadPlutoBounds([b.getSouth(),b.getWest(),b.getNorth(),b.getEast()], 'current map area'); }
   else if (act === 'neighborhoods') neighborhoods();
+  else if (act === 'offlineAreas') offlineNeighborhoods();
+  else if (act === 'downloadOfflineArea') downloadNeighborhoodOffline(a.dataset.boro,+a.dataset.i);
   else if (act === 'loadNbh') { const n = NEIGHBORHOODS[a.dataset.boro][+a.dataset.i]; map.fitBounds([[n[1][0],n[1][1]],[n[1][2],n[1][3]]]); closeModal(); loadPlutoBounds(n[1], n[0]); }
   else if (act === 'createLead') createLead(a);
   else if (act === 'knockNow') {
