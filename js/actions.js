@@ -302,6 +302,7 @@ function parseAction(e) {
   else if (act === 'switchBlockSide') startBlockWalk(true);
   else if (act === 'locate') locate();
   else if (act === 'satellite') toggleSatellite();
+  else if (act === 'parcels') toggleParcels();
   else if (act === 'walk' || act === 'route') optimizeRoute();
   else if (act === 'clearroute') clearRoute();
   else if (act === 'livetrack') startTracking();

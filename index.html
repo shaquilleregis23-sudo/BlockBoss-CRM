@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css" />
-<link rel="stylesheet" href="styles.css?v=15-sequence-progress-health-tests" />
+<link rel="stylesheet" href="styles.css?v=16-nyc-parcels" />
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="BlockBoss CRM">
 <meta name="mobile-web-app-capable" content="yes">
@@ -52,6 +52,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
           <button class="purple" data-tool="territoryProgress">📊 Progress</button>
           <button class="blue" data-tool="locate">📍 Locate Me</button>
           <button data-tool="satellite">🛰️ Satellite</button>
+          <button class="blue" data-tool="parcels">▱ Parcels</button>
           <button class="blue" data-tool="route">🗺️ Route Opt</button>
           <button data-tool="fit">🗺️ Fit Leads</button>
           <button class="purple" data-tool="add">➕ Add Lead</button>
@@ -66,6 +67,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
     <button class="next-best-pill" id="nextBestPill">🎯 Next Best</button>
   </div>
   <div class="info-tag" id="infoTag">Live map is always on. Use Field Tools → Load Area for NYC PLUTO-style homeowner pins.</div>
+  <div class="parcel-legend" id="parcelLegend"><span><i class="fresh"></i>Untouched</span><span><i class="worked"></i>Worked</span><span><i class="closed"></i>Closed</span><span><i class="dnk"></i>DNK</span></div>
   <section class="panel-view" id="listView"><div id="listContainer"></div></section>
   <section class="panel-view" id="statsView"></section>
 </main>
@@ -92,17 +94,17 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 <script src="vendor/supabase/supabase.js"></script>
 
 <!-- App modules — load order matters: each file depends on symbols from prior files -->
-<script src="js/config.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/state.js?v=13-search-audit-next-door"></script>
-<script src="js/storage.js?v=11-offline-performance"></script>
-<script src="js/leads.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/sync.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/map.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/render.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/ui.js?v=15-sequence-progress-health-tests"></script>
+<script src="js/config.js?v=16-nyc-parcels"></script>
+<script src="js/state.js?v=16-nyc-parcels"></script>
+<script src="js/storage.js?v=16-nyc-parcels"></script>
+<script src="js/leads.js?v=16-nyc-parcels"></script>
+<script src="js/sync.js?v=16-nyc-parcels"></script>
+<script src="js/map.js?v=16-nyc-parcels"></script>
+<script src="js/render.js?v=16-nyc-parcels"></script>
+<script src="js/ui.js?v=16-nyc-parcels"></script>
 <script src="js/auth.js"></script>
 <script src="js/sms.js"></script>
-<script src="js/actions.js?v=15-sequence-progress-health-tests"></script>
-<script src="js/app.js?v=15-sequence-progress-health-tests"></script>
+<script src="js/actions.js?v=16-nyc-parcels"></script>
+<script src="js/app.js?v=16-nyc-parcels"></script>
 </body>
 </html>

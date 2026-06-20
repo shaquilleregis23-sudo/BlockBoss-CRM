@@ -1,5 +1,5 @@
 // ── IndexedDB lead + enrichment cache ────────────────────────────────────────
-const IDB_NAME='m2_hybrid_v1', IDB_VERSION=2;
+const IDB_NAME='m2_hybrid_v1', IDB_VERSION=3;
 let _idbPromise=null, _idbTimer=null;
 function openHybridDB(){
   if(_idbPromise)return _idbPromise;
@@ -10,6 +10,7 @@ function openHybridDB(){
       if(!db.objectStoreNames.contains('leads'))db.createObjectStore('leads',{keyPath:'id'});
       if(!db.objectStoreNames.contains('enrichment'))db.createObjectStore('enrichment',{keyPath:'key'});
       if(!db.objectStoreNames.contains('territories'))db.createObjectStore('territories',{keyPath:'key'});
+      if(!db.objectStoreNames.contains('parcel_areas'))db.createObjectStore('parcel_areas',{keyPath:'key'});
     };
     req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
   });
@@ -58,4 +59,10 @@ async function territoryCacheGet(bounds,allowExpired=false){
 }
 async function territoryCachePut(bounds,name,rows,ttlDays=7){
   try{await idbPutMany('territories',[{key:territoryCacheKey(bounds),name,rows,updated_at:Date.now(),expires_at:Date.now()+ttlDays*86400000}]);}catch(e){console.warn('Territory cache save:',e);}
+}
+async function parcelCacheGet(key,allowExpired=false){
+  try{const row=await idbGet('parcel_areas',key);if(!row)return null;if(!allowExpired&&row.expires_at<Date.now())return null;return row.geojson||null;}catch(e){console.warn('Parcel cache read:',e);return null;}
+}
+async function parcelCachePut(key,geojson,ttlDays=14){
+  try{await idbPutMany('parcel_areas',[{key,geojson,updated_at:Date.now(),expires_at:Date.now()+ttlDays*86400000}]);}catch(e){console.warn('Parcel cache save:',e);}
 }

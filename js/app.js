@@ -65,8 +65,10 @@ window._openCreateFromDraft = () => openCreate(window._draftLatLng);
 function updateLabelViz() { document.getElementById('map').classList.toggle('show-prop-labels', map.getZoom() >= 17); }
 map.on('zoomend', updateLabelViz);
 let _viewportRenderTimer=null;
-map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,220);});
+let _parcelRenderTimer=null;
+map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,220);clearTimeout(_parcelRenderTimer);_parcelRenderTimer=setTimeout(loadParcelBoundaries,360);});
 updateLabelViz();
+loadParcelBoundaries();
 
 // ── Initial Render & Sync ─────────────────────────────────────────────────────
 renderAll();

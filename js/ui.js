@@ -80,9 +80,9 @@ function uploadPhoto(input) {
 }
 
 // ── Create Lead ───────────────────────────────────────────────────────────────
-function openCreate(latlng) {
+function openCreate(latlng, parcel={}) {
   const c = latlng || map.getCenter();
-  modal('➕ Add Lead', `<div class="form-grid-2"><div class="form-row"><label>First</label><input id="newFirst"></div><div class="form-row"><label>Last</label><input id="newLast"></div></div><div class="form-row"><label>Address</label><input id="newAddr"></div><div class="form-grid-2"><div class="form-row"><label>Borough / City</label><input id="newBoro" value="${settings().territory||''}"></div><div class="form-row"><label>Zip</label><input id="newZip"></div></div><div class="form-grid-2"><div class="form-row"><label>Phone</label><input id="newPhone"></div><div class="form-row"><label>Monthly Bill</label><input type="number" id="newBill"></div></div><div class="form-row"><label>Notes</label><textarea id="newNotes"></textarea></div><button class="save-btn green" data-action="createLead" data-lat="${c.lat}" data-lng="${c.lng}">Create Lead</button>`);
+  modal('➕ Add Lead', `<div class="form-grid-2"><div class="form-row"><label>First</label><input id="newFirst"></div><div class="form-row"><label>Last</label><input id="newLast"></div></div><div class="form-row"><label>Address</label><input id="newAddr"></div><div class="form-grid-2"><div class="form-row"><label>Borough / City</label><input id="newBoro" value="${settings().territory||''}"></div><div class="form-row"><label>Zip</label><input id="newZip"></div></div><div class="form-grid-2"><div class="form-row"><label>Phone</label><input id="newPhone"></div><div class="form-row"><label>Monthly Bill</label><input type="number" id="newBill"></div></div><div class="form-row"><label>NYC BBL</label><input id="newBBL" inputmode="numeric" value="${esc(parcel.bbl||'')}" placeholder="Filled automatically when adding from a parcel"></div><div class="form-row"><label>Notes</label><textarea id="newNotes"></textarea></div><button class="save-btn green" data-action="createLead" data-lat="${c.lat}" data-lng="${c.lng}">Create Lead</button>`);
 }
 async function createLead(btn) {
   btn.disabled=true;btn.textContent='Saving lead…';
@@ -90,14 +90,14 @@ async function createLead(btn) {
   const lead = {
     id:'m_'+Date.now(), source:'manual', status:'fresh',
     first:val('newFirst'), last:val('newLast'), addr:val('newAddr'), boro:val('newBoro'),
-    zip:val('newZip'), phone:val('newPhone'), monthly_bill:val('newBill'), notes:val('newNotes'),
+    zip:val('newZip'), phone:val('newPhone'), monthly_bill:val('newBill'), bbl:digits(val('newBBL')), notes:val('newNotes'),
     lat:+btn.dataset.lat, lng:+btn.dataset.lng,
     assigned_agent:agentName(),assigned_user_email:sess.role==='agent'?(sess.email||''):'',assigned_user_id:sess.role==='agent'?(sess.user_id||sess.id||null):null,territory:settings().territory,
     updated_at:new Date().toISOString(),
     activity_log:[{type:'created',note:'Manual lead created',at:new Date().toISOString(),agent:agentName()}]
   };
   if (!lead.addr && !lead.first && !lead.last) { btn.disabled=false;btn.textContent='Create Lead';toast('Add a name or address'); return; }
-  const duplicate=lead.addr?state.leads.find(x=>leadIdentityKey(x)===leadIdentityKey(lead)):null;
+  const duplicate=(lead.addr||lead.bbl)?state.leads.find(x=>leadIdentityKey(x)===leadIdentityKey(lead)):null;
   if(duplicate){btn.disabled=false;btn.textContent='Create Lead';closeModal();goLead(duplicate);return toast('That property already exists');}
   if(lead.addr&&navigator.onLine){const g=await geocodePurchasedLead([lead.addr,lead.boro,lead.zip,'NY'].filter(Boolean).join(', '));if(g){lead.lat=g.lat;lead.lng=g.lng;}}
   state.leads.push(lead); saveState(); await upsertLead(lead);

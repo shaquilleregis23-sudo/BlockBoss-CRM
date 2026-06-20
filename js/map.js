@@ -10,6 +10,25 @@ const markerLayer = typeof L.markerClusterGroup === 'function'
   : L.layerGroup();
 markerLayer.addTo(map);
 const territoryProgressLayer=L.layerGroup().addTo(map);
+const PARCELS_GEOJSON='https://data.cityofnewyork.us/resource/i38t-6if2.geojson';
+let parcelMode=localStorage.getItem('m2_parcels_on')!=='0',parcelRequestSeq=0,parcelLeadIndex=new Map();
+function rebuildParcelLeadIndex(){parcelLeadIndex=new Map(scopedLeads().filter(l=>l.bbl).map(l=>[digits(l.bbl),l]));}
+function parcelColor(l){if(!l)return '#58a6ff';if(l.status==='closed')return '#3fb950';if(['do_not_knock','not_interested','not_qualified'].includes(l.status))return '#f85149';if(l.status&&l.status!=='fresh')return '#f9c74f';return '#39d0d8';}
+function parcelStyle(feature){const l=parcelLeadIndex.get(digits(feature?.properties?.bbl));return {color:parcelColor(l),weight:l?2:1.2,opacity:.92,fillColor:parcelColor(l),fillOpacity:l?.status==='fresh'?0.08:l?.status?.length?0.16:0.035,bubblingMouseEvents:false};}
+function parcelFeature(feature,layer){
+  const bbl=digits(feature?.properties?.bbl),lead=parcelLeadIndex.get(bbl);layer.bindTooltip(`${lead?esc(nameOf(lead)):'Tax Lot'} · BBL ${esc(bbl)}`,{sticky:true,direction:'top'});
+  layer.on('click',e=>{L.DomEvent.stopPropagation(e.originalEvent);const current=parcelLeadIndex.get(bbl);if(current){window._blockWalkDirection=1;openLead(current.id);}else openCreate(e.latlng,{bbl});});
+}
+const parcelLayer=L.geoJSON(null,{style:parcelStyle,onEachFeature:parcelFeature,smoothFactor:1.5}).addTo(map);
+function parcelGridBounds(){const b=map.getBounds(),step=.005;return {n:Math.ceil(b.getNorth()/step)*step,w:Math.floor(b.getWest()/step)*step,s:Math.floor(b.getSouth()/step)*step,e:Math.ceil(b.getEast()/step)*step};}
+function parcelGridKey(b){return `parcel:${b.s.toFixed(3)}:${b.w.toFixed(3)}:${b.n.toFixed(3)}:${b.e.toFixed(3)}`;}
+async function loadParcelBoundaries(force=false){
+  const legend=document.getElementById('parcelLegend');if(!parcelMode||map.getZoom()<16){parcelLayer.clearLayers();legend?.classList.remove('open');return;}const b=parcelGridBounds(),key=parcelGridKey(b),seq=++parcelRequestSeq;rebuildParcelLeadIndex();let geo=force&&navigator.onLine?null:await parcelCacheGet(key,!navigator.onLine);
+  if(!geo&&navigator.onLine){try{const where=`within_box(the_geom,${b.n},${b.w},${b.s},${b.e})`,url=`${PARCELS_GEOJSON}?$limit=3000&$select=bbl,boro,block,lot,the_geom&$where=${encodeURIComponent(where)}`,r=await fetch(url);if(!r.ok)throw Error(`Parcel API ${r.status}`);geo=await r.json();if(geo?.features)parcelCachePut(key,geo);}catch(e){console.warn('Parcels:',e);logHealth('warning','parcel_api',e.message||String(e));}}
+  if(seq!==parcelRequestSeq)return;parcelLayer.clearLayers();if(geo?.features){parcelLayer.addData(geo);parcelLayer.bringToFront();legend?.classList.add('open');if(geo.features.length>=3000)info('Parcel limit reached — zoom in for complete lot outlines');}else if(!navigator.onLine&&!window._parcelOfflineWarned){window._parcelOfflineWarned=true;toast('Parcel outlines for this block were not cached yet');}
+}
+function refreshParcelStyles(){if(!parcelLayer||map.getZoom()<16)return;rebuildParcelLeadIndex();parcelLayer.setStyle(parcelStyle);}
+function toggleParcels(){parcelMode=!parcelMode;localStorage.setItem('m2_parcels_on',parcelMode?'1':'0');if(!parcelMode){parcelLayer.clearLayers();document.getElementById('parcelLegend')?.classList.remove('open');}else loadParcelBoundaries(true);toast(parcelMode?'Parcel boundaries on · zoom to street level':'Parcel boundaries off');}
 
 // ── Marker Rendering ──────────────────────────────────────────────────────────
 function leadIcon(l) {
@@ -39,6 +58,7 @@ function renderMarkers() {
     m.bindPopup(`<b>${esc(nameOf(l))}</b><br>${esc(l.addr||'')}<br>☀ ${sunScore(l)} · Q${leadQuality(l)} · ${LABEL[l.status||'fresh']}`);
     m._renderSig=sig; markerLayer.addLayer(m); markers[l.id] = m;
   });
+  refreshParcelStyles();
 }
 function updateMarker(l) { if (markers[l.id]) { markers[l.id].setIcon(leadIcon(l)); markers[l.id]._renderSig=''; } }
 
