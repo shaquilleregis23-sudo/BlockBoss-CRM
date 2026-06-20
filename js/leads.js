@@ -338,6 +338,24 @@ async function enrichWithACRIS(scope='view'){
 }
 
 // ── Navigation Helpers ────────────────────────────────────────────────────────
+function parseDoorAddress(addr){
+  const m=String(addr||'').trim().toUpperCase().match(/^(\d+)(?:-(\d+))?\s+(.+)$/);if(!m)return null;
+  const prefix=+m[1],suffix=m[2]?+m[2]:null,seq=suffix??prefix;
+  const street=m[3].replace(/\bAVENUE\b/g,'AVE').replace(/\bSTREET\b/g,'ST').replace(/\bROAD\b/g,'RD').replace(/\bBOULEVARD\b/g,'BLVD').replace(/\bPLACE\b/g,'PL').replace(/\bCOURT\b/g,'CT').replace(/[^A-Z0-9]/g,'');
+  return {street,block:suffix!==null?String(prefix):String(Math.floor(prefix/100)),seq,parity:Math.abs(seq)%2,hyphen:suffix!==null};
+}
+function nextDoorLead(current){
+  const p=parseDoorAddress(current?.addr);if(!p)return null;
+  const terminal=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']);
+  const candidates=scopedLeads().filter(l=>l.id!==current.id&&!terminal.has(l.status||'fresh')).map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===p.parity&&x.p.seq>p.seq);
+  candidates.sort((a,b)=>(a.p.seq-p.seq)-(b.p.seq-p.seq)||Math.hypot((+a.l.lat||0)-(+current.lat||0),(+a.l.lng||0)-(+current.lng||0))-Math.hypot((+b.l.lat||0)-(+current.lat||0),(+b.l.lng||0)-(+current.lng||0)));
+  return candidates[0]?.l||null;
+}
+function goNextDoorFrom(current){
+  if(!current)return toast('Open or complete a lead first');const next=nextDoorLead(current);
+  if(!next)return toast('No untouched next house loaded on this side of the block');
+  goLead(next);toast(`🏠 Next door: ${next.addr}`);
+}
 function nextBestLead() {
   return filterLeads().filter(l => !['closed','not_interested','do_not_knock','not_qualified'].includes(l.status))
     .sort((a, b) => leadQuality(b) - leadQuality(a) || sunScore(b) - sunScore(a))[0];

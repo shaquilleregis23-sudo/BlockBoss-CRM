@@ -21,6 +21,7 @@ leadSheet.addEventListener('touchstart',e=>{const t=e.touches[0];sheetTouchY=t.c
 leadSheet.addEventListener('touchend',e=>{const t=e.changedTouches[0],dy=t.clientY-sheetTouchY,dx=Math.abs(t.clientX-sheetTouchX);if(dy>85&&dx<70&&(e.target.closest('.sheet-header,.sheet-handle')||leadSheet.scrollTop<8)){navigator.vibrate?.(12);closeSheet();}},{passive:true});
 
 document.getElementById('filterToggle').onclick = e => { e.stopPropagation(); document.getElementById('filterBar').classList.toggle('open'); };
+document.getElementById('openLeadSearch').onclick = openLeadSearch;
 document.getElementById('fieldToggle').onclick  = e => { e.stopPropagation(); document.getElementById('fieldMenu').classList.toggle('open'); };
 document.addEventListener('click', e => {
   if (!e.target.closest('#fieldMenu,#fieldToggle')) document.getElementById('fieldMenu').classList.remove('open');
@@ -45,6 +46,8 @@ document.addEventListener('change', e => {
   if (e.target.id === 'backupFile') importBackup(e.target.files[0]);
   if (e.target.id === 'csvFile')    importCSV(e.target.files[0]);
 });
+let leadSearchTimer;
+document.addEventListener('input',e=>{if(e.target.id!=='leadSearchInput')return;clearTimeout(leadSearchTimer);leadSearchTimer=setTimeout(()=>runLeadSearch(e.target.value),100);});
 
 // ── Map Interactions ──────────────────────────────────────────────────────────
 map.on('click', e => {

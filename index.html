@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css" />
-<link rel="stylesheet" href="styles.css?v=12-field-workflow" />
+<link rel="stylesheet" href="styles.css?v=13-search-audit-next-door" />
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="BlockBoss CRM">
 <meta name="mobile-web-app-capable" content="yes">
@@ -36,6 +36,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 <main class="main">
   <div id="map"></div>
   <button class="filter-toggle" id="filterToggle">Filter: All ▾</button>
+  <button class="search-toggle" id="openLeadSearch" aria-label="Search leads">🔎 Search</button>
   <div class="filter-bar" id="filterBar"></div>
   <div class="progress" id="progress"><div class="ttl" id="progTitle">Loading…</div><div class="sub" id="progSub">Starting</div><div class="track"><div class="fill" id="progFill"></div></div><button class="save-btn secondary" id="cancelLoad">Cancel</button></div>
   <div class="field-dock">
@@ -46,6 +47,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
         <div class="field-grid">
           <button class="gold" data-tool="today">⚡ Today Mode</button>
           <button class="green" data-tool="next">🎯 Next Best</button>
+          <button class="green" data-tool="nextDoor">🏠 Next Door</button>
           <button class="blue" data-tool="locate">📍 Locate Me</button>
           <button data-tool="satellite">🛰️ Satellite</button>
           <button class="blue" data-tool="route">🗺️ Route Opt</button>
@@ -89,16 +91,16 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 
 <!-- App modules — load order matters: each file depends on symbols from prior files -->
 <script src="js/config.js"></script>
-<script src="js/state.js?v=8-iphone"></script>
+<script src="js/state.js?v=13-search-audit-next-door"></script>
 <script src="js/storage.js?v=11-offline-performance"></script>
-<script src="js/leads.js?v=12-field-workflow"></script>
+<script src="js/leads.js?v=13-search-audit-next-door"></script>
 <script src="js/sync.js?v=11-offline-performance"></script>
 <script src="js/map.js?v=11-offline-performance"></script>
-<script src="js/render.js?v=12-field-workflow"></script>
-<script src="js/ui.js"></script>
+<script src="js/render.js?v=13-search-audit-next-door"></script>
+<script src="js/ui.js?v=13-search-audit-next-door"></script>
 <script src="js/auth.js"></script>
 <script src="js/sms.js"></script>
-<script src="js/actions.js?v=12-field-workflow"></script>
-<script src="js/app.js?v=12-field-workflow"></script>
+<script src="js/actions.js?v=13-search-audit-next-door"></script>
+<script src="js/app.js?v=13-search-audit-next-door"></script>
 </body>
 </html>

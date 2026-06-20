@@ -16,8 +16,10 @@ function openLead(id) {
   addrEl.textContent = [l.addr, l.boro, l.zip].filter(Boolean).join(', ');
   if (l.phone) addrEl.innerHTML = addrEl.textContent + `<a href="tel:${digits(l.phone)}" style="color:var(--blue);margin-left:8px;font-size:12px;font-weight:700">📞 ${esc(l.phone)}</a>`;
   const q = leadQuality(l), ss = sunScore(l);
+  const nextDoor=nextDoorLead(l);
   document.getElementById('sheetBody').innerHTML = `
 ${!['closed','not_interested','do_not_knock','not_qualified'].includes(l.status)?`<button class="save-btn blue" style="font-size:16px;letter-spacing:.3px;margin-bottom:14px" data-lead-action="knockNow">✊ At the Door</button>`:''}
+${nextDoor?`<div class="next-door-hint">🏠 Same-side next: <b>${esc(nextDoor.addr)}</b></div>`:''}
 <div class="pipeline-mini"><span class="${q>=70?'hot':''}">Q${q} Lead Quality</span><span class="${ss>=75?'hot':''}">☀️ ${ss} Sun Score</span><span>👤 ${esc(l.assigned_agent||'Unassigned')}</span><span>📍 ${esc(l.territory||l.boro||'No territory')}</span><span>${esc(l.source||'manual')}</span>${l.owner_freshness?`<span class="badge ${l.owner_freshness==='recent_deed'?'hot':'gold'}">${l.owner_freshness==='recent_deed'?'Fresh deed':'Historical deed'}</span>`:''}${syncBadgeHTML(l)}</div>
 <div class="sun-score-card"><div class="sun-score-top"><div><div class="sun-score-title">☀️ Free Sun Potential Score</div><div class="sun-score-reason">Ranks leads using property, bill, roof, solar/HVAC, and status.</div></div><div class="sun-score-num">${ss}</div></div><div class="sun-score-bar"><div class="sun-score-fill" style="width:${ss}%"></div></div><div class="sun-score-reason"><b>${q>=75?'High Priority':q>=50?'Medium Priority':'Low Priority'}</b> · Lead quality ${q}/100${l.nrel_ghi?` · ☀ ${(+l.nrel_ghi).toFixed(1)} kWh/m²/day`:''}</div></div>
 <div class="action-grid"><a class="save-btn blue" style="text-decoration:none;text-align:center" href="${l.phone?'tel:'+digits(l.phone):'#'}">📞 Call</a><a class="save-btn secondary" style="text-decoration:none;text-align:center" href="${l.phone?'sms:'+digits(l.phone):'#'}">💬 Text</a><a class="save-btn gold" style="text-decoration:none;text-align:center" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((l.addr||'')+' '+(l.boro||'')+' NY '+(l.zip||''))}">🧭 Directions</a><button class="save-btn purple" data-lead-action="handoff">📲 Closer</button></div>
@@ -81,20 +83,25 @@ function openCreate(latlng) {
   const c = latlng || map.getCenter();
   modal('➕ Add Lead', `<div class="form-grid-2"><div class="form-row"><label>First</label><input id="newFirst"></div><div class="form-row"><label>Last</label><input id="newLast"></div></div><div class="form-row"><label>Address</label><input id="newAddr"></div><div class="form-grid-2"><div class="form-row"><label>Borough / City</label><input id="newBoro" value="${settings().territory||''}"></div><div class="form-row"><label>Zip</label><input id="newZip"></div></div><div class="form-grid-2"><div class="form-row"><label>Phone</label><input id="newPhone"></div><div class="form-row"><label>Monthly Bill</label><input type="number" id="newBill"></div></div><div class="form-row"><label>Notes</label><textarea id="newNotes"></textarea></div><button class="save-btn green" data-action="createLead" data-lat="${c.lat}" data-lng="${c.lng}">Create Lead</button>`);
 }
-function createLead(btn) {
+async function createLead(btn) {
+  btn.disabled=true;btn.textContent='Saving lead…';
+  const sess=session();
   const lead = {
     id:'m_'+Date.now(), source:'manual', status:'fresh',
     first:val('newFirst'), last:val('newLast'), addr:val('newAddr'), boro:val('newBoro'),
     zip:val('newZip'), phone:val('newPhone'), monthly_bill:val('newBill'), notes:val('newNotes'),
     lat:+btn.dataset.lat, lng:+btn.dataset.lng,
-    assigned_agent:agentName(), territory:settings().territory,
+    assigned_agent:agentName(),assigned_user_email:sess.role==='agent'?(sess.email||''):'',assigned_user_id:sess.role==='agent'?(sess.user_id||sess.id||null):null,territory:settings().territory,
     updated_at:new Date().toISOString(),
     activity_log:[{type:'created',note:'Manual lead created',at:new Date().toISOString(),agent:agentName()}]
   };
-  if (!lead.addr && !lead.first && !lead.last) { toast('Add a name or address'); return; }
-  state.leads.push(lead); saveState(); upsertLead(lead);
+  if (!lead.addr && !lead.first && !lead.last) { btn.disabled=false;btn.textContent='Create Lead';toast('Add a name or address'); return; }
+  const duplicate=lead.addr?state.leads.find(x=>leadIdentityKey(x)===leadIdentityKey(lead)):null;
+  if(duplicate){btn.disabled=false;btn.textContent='Create Lead';closeModal();goLead(duplicate);return toast('That property already exists');}
+  if(lead.addr&&navigator.onLine){const g=await geocodePurchasedLead([lead.addr,lead.boro,lead.zip,'NY'].filter(Boolean).join(', '));if(g){lead.lat=g.lat;lead.lng=g.lng;}}
+  state.leads.push(lead); saveState(); await upsertLead(lead);
   closeModal(); renderAll(); map.setView([lead.lat, lead.lng], 17); openLead(lead.id);
-  toast('✓ Lead created');
+  toast(lead._sync_status==='synced'?'✓ Lead saved to team database':sess.team_id?'✓ Lead saved locally · cloud sync queued':'✓ Lead saved on this phone');
 }
 
 // ── Import / Export ───────────────────────────────────────────────────────────

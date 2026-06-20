@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v12-field-workflow';
+const CACHE = 'm2-hybrid-production-v13-search-audit-next-door';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',

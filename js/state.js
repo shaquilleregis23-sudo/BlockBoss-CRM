@@ -24,6 +24,7 @@ function saveState() {
 
 let state = loadState();
 let markers = {}, draftMarker = null, loadCancelled = false, currentLeadId = null, satellite = false;
+let lastWorkedLeadId = localStorage.getItem('m2_last_worked_lead') || '';
 
 // ── localStorage Helpers ──────────────────────────────────────────────────────
 function settings() {

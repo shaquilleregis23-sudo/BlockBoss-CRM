@@ -80,6 +80,49 @@ function runTest() {
   toast(problems.length ? 'Check: ' + problems.join(', ') : '✓ Test Mode passed. CRM is demo-ready.');
 }
 
+// ── Universal Lead Search ────────────────────────────────────────────────────
+function openLeadSearch(){
+  modal('🔎 Search Every Lead',`<div class="form-row" style="margin-top:0"><input id="leadSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="Name, address, phone, BBL, or rep"></div><div id="leadSearchResults" class="search-results"><div class="search-empty">Start typing to search ${scopedLeads().length.toLocaleString()} leads.</div></div><button class="save-btn purple" data-action="add">➕ Add Manual Lead</button>`);
+  setTimeout(()=>document.getElementById('leadSearchInput')?.focus(),80);
+}
+function runLeadSearch(raw){
+  const el=document.getElementById('leadSearchResults');if(!el)return;const q=String(raw||'').trim().toLowerCase(),qd=digits(q),qa=normalizeAddress(q);
+  if(q.length<2){el.innerHTML='<div class="search-empty">Enter at least two characters.</div>';return;}
+  const scored=[];
+  for(const l of scopedLeads()){
+    const name=nameOf(l).toLowerCase(),addr=String(l.addr||'').toLowerCase(),phone=digits(l.phone),bbl=digits(l.bbl),rep=String(l.assigned_agent||l.assigned_user_email||'').toLowerCase();let score=0;
+    if(name.startsWith(q))score=100;else if(name.includes(q))score=82;
+    if(addr.startsWith(q)||normalizeAddress(l.addr).startsWith(qa))score=Math.max(score,96);else if(addr.includes(q)||normalizeAddress(l.addr).includes(qa))score=Math.max(score,86);
+    if(qd&&phone.includes(qd))score=Math.max(score,94);if(qd&&bbl.includes(qd))score=Math.max(score,92);if(rep.includes(q))score=Math.max(score,65);
+    if(score)scored.push({l,score});
+  }
+  scored.sort((a,b)=>b.score-a.score||leadQuality(b.l)-leadQuality(a.l));
+  el.innerHTML=scored.slice(0,60).map(({l})=>`<div class="search-result" data-open="${l.id}"><div class="nm">${esc(nameOf(l))}</div><div class="meta">${esc(l.addr||'No address')} · ${esc(l.phone||l.bbl||'')} · ${esc(LABEL[l.status||'fresh'])}</div></div>`).join('')||'<div class="search-empty">No match. Use “Add Manual Lead” to create it.</div>';
+}
+
+// ── Manager Activity Audit ───────────────────────────────────────────────────
+window._managerAuditRows=[];
+function auditEventHTML(r){
+  const before=r.before_data||{},after=r.after_data||{},data=after.local_id?after:before,action=r.action||'update';
+  const status=before.status!==after.status?` · ${esc(before.status||'—')} → ${esc(after.status||'—')}`:'';
+  return `<div class="mini-item"><div class="nm">${action==='delete'?'🗑️':action==='insert'?'➕':'✏️'} ${esc(action.toUpperCase())} · ${esc([data.first,data.last].filter(Boolean).join(' ')||data.addr||r.lead_id)}</div><div class="meta">${new Date(r.created_at).toLocaleString()} · ${esc(r.actor_email||'System')}${status}<br>${esc(data.addr||'')}</div>${action==='delete'?`<button class="save-btn green" data-action="restoreAuditLead" data-id="${r.id}">Restore Deleted Lead</button>`:''}</div>`;
+}
+function localAuditRows(){
+  const rows=[];for(const l of scopedLeads())for(const x of l.activity_log||[])rows.push({id:`local-${l.id}-${x.at}`,lead_id:l.id,action:x.type==='created'?'insert':'update',actor_email:x.agent,before_data:{},after_data:{...l,status:l.status},created_at:x.at});return rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,200);
+}
+async function openManagerAudit(){
+  if(!isMaster())return toast('Manager access required');modal('🛡️ Manager Activity Audit','<p class="sub">Loading team activity…</p>');let rows=[];
+  if(sb&&session().team_id){const {data,error}=await sb.from('lead_audit_events').select('id,team_id,lead_id,action,actor_email,before_data,after_data,created_at').eq('team_id',session().team_id).order('created_at',{ascending:false}).limit(200);if(!error)rows=data||[];}
+  if(!rows.length)rows=localAuditRows();window._managerAuditRows=rows;
+  modal('🛡️ Manager Activity Audit',`<p class="sub">Latest ${rows.length} lead creations, changes, and deletions. Deleted database leads can be restored by managers.</p>${rows.map(auditEventHTML).join('')||'<div class="search-empty">No activity recorded yet.</div>'}`);
+}
+async function restoreAuditLead(id){
+  if(!isMaster())return toast('Manager access required');const event=window._managerAuditRows.find(x=>String(x.id)===String(id));if(!event?.before_data?.local_id)return toast('Restore data unavailable');
+  const row={...event.before_data,deleted_at:null,updated_at:new Date().toISOString()};delete row.id;delete row.created_at;
+  const {error}=await sb.from('leads').upsert(row,{onConflict:'local_id'});if(error)return toast('Restore failed: '+error.message);
+  const lead=remoteToLocal(row),idx=state.leads.findIndex(x=>x.id===lead.id);if(idx>=0)state.leads[idx]=lead;else state.leads.push(lead);saveState();renderAll();closeModal();toast('✓ Deleted lead restored');
+}
+
 // ── Callback Scheduler ───────────────────────────────────────────────────────
 function openCallbackScheduler(l){
   if(!l)return;
@@ -91,8 +134,8 @@ function saveScheduledCallback(btn){
   const mins=+btn.dataset.minutes||0,when=mins?new Date(Date.now()+mins*60000):new Date(val('callbackWhen'));
   if(isNaN(when))return toast('Choose a callback date and time');
   l.status='callback';l.callback_due=when.toISOString();const note=val('callbackNote');if(note)l.notes=[l.notes,note].filter(Boolean).join('\n');
-  addLog(l,'callback',`Callback scheduled ${when.toLocaleString()}${note?' · '+note:''}`);saveState();upsertLead(l);requestNotifPerm().then(scheduleCallbackNotifs);
-  navigator.vibrate?.(18);closeModal();closeSheet();renderAll();toast(`📞 Callback ${when.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}`);
+  addLog(l,'callback',`Callback scheduled ${when.toLocaleString()}${note?' · '+note:''}`);lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);saveState();upsertLead(l);requestNotifPerm().then(scheduleCallbackNotifs);
+  navigator.vibrate?.(18);closeModal();closeSheet();renderAll();toast(`📞 Callback ${when.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}`);setTimeout(()=>goNextDoorFrom(l),420);
 }
 function openFollowups(){
   const now=Date.now(),endToday=new Date();endToday.setHours(23,59,59,999);
@@ -132,6 +175,7 @@ function parseAction(e) {
     const l = state.leads.find(x => x.id === currentLeadId); if (!l) return;
     if(a.dataset.disp==='callback'){openCallbackScheduler(l);return;}
     l.status = a.dataset.disp; l.sun_score = sunScore(l);
+    lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);
     addLog(l, a.dataset.disp, `${LABEL[a.dataset.disp]} saved`);
     saveState(); upsertLead(l);
     if (window.posthog) posthog.capture('lead_status_changed', { status:l.status, addr:l.addr });
@@ -144,7 +188,7 @@ function parseAction(e) {
     navigator.vibrate?.(16);
     toast(`✓ ${LABEL[l.status]}`); renderAll();
     const after = localStorage.getItem(AFTER) || 'next';
-    if (after === 'next') setTimeout(() => { closeSheet(); goLead(nextBestLead()); }, 420);
+    if (after === 'next') setTimeout(() => { closeSheet(); goNextDoorFrom(l); }, 420);
     else if (after === 'close') setTimeout(closeSheet, 420);
     else setTimeout(() => openLead(l.id), 420);
     return;
@@ -194,8 +238,11 @@ function parseAction(e) {
   else if (act === 'resetData') { if (confirm('Reset all local leads?')) { state={leads:[],filter:'all'}; saveState(); renderAll(); } }
   else if (act === 'repMode' || act === 'today') repMode();
   else if (act === 'openFollowups') openFollowups();
+  else if (act === 'managerAudit') openManagerAudit();
+  else if (act === 'restoreAuditLead') restoreAuditLead(a.dataset.id);
   else if (act === 'scheduleCallback') saveScheduledCallback(a);
   else if (act === 'next' || act === 'nextBest') goLead(nextBestLead());
+  else if (act === 'nextDoor') goNextDoorFrom(state.leads.find(x=>x.id===lastWorkedLeadId)||state.leads.find(x=>x.id===currentLeadId));
   else if (act === 'locate') locate();
   else if (act === 'satellite') toggleSatellite();
   else if (act === 'walk' || act === 'route') optimizeRoute();
