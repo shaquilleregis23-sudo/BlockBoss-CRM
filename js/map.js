@@ -18,21 +18,28 @@ function leadIcon(l) {
   return L.divIcon({ className:'', html:`<div class="sun-wrap"><div class="dot-pin ${markerClass(l)}"></div>${label}</div>`, iconSize:[10,10], iconAnchor:[5,5], popupAnchor:[0,-8] });
 }
 function renderMarkers() {
-  markerLayer.clearLayers();
-  markers = {};
   let rows=filterLeads();
   const zoom=map.getZoom(), bounds=map.getBounds().pad(.35);
   if(zoom>=12) rows=rows.filter(l=>l.lat&&l.lng&&bounds.contains([+l.lat,+l.lng]));
   else if(rows.length>8000) rows=rows.slice().sort((a,b)=>leadQuality(b)-leadQuality(a)).slice(0,8000);
-  rows.slice(0,14000).forEach(l => {
+  const limit=matchMedia('(max-width:760px)').matches?9000:14000;
+  const desired=new Map(rows.slice(0,limit).filter(l=>l.lat&&l.lng).map(l=>[l.id,l]));
+  Object.keys(markers).forEach(id=>{if(!desired.has(id)){markerLayer.removeLayer(markers[id]);delete markers[id];}});
+  desired.forEach(l => {
     if (!l.lat || !l.lng) return;
+    const sig=[l.status,l.first,l.last,l.addr,l.sun_score,l.lat,l.lng].join('|');
+    const existing=markers[l.id];
+    if(existing){
+      if(existing._renderSig!==sig){existing.setLatLng([+l.lat,+l.lng]);existing.setIcon(leadIcon(l));existing.setPopupContent(`<b>${esc(nameOf(l))}</b><br>${esc(l.addr||'')}<br>☀ ${sunScore(l)} · Q${leadQuality(l)} · ${LABEL[l.status||'fresh']}`);existing._renderSig=sig;}
+      return;
+    }
     const m = L.marker([+l.lat, +l.lng], { icon:leadIcon(l) });
     m.on('click', () => openLead(l.id));
     m.bindPopup(`<b>${esc(nameOf(l))}</b><br>${esc(l.addr||'')}<br>☀ ${sunScore(l)} · Q${leadQuality(l)} · ${LABEL[l.status||'fresh']}`);
-    markerLayer.addLayer(m); markers[l.id] = m;
+    m._renderSig=sig; markerLayer.addLayer(m); markers[l.id] = m;
   });
 }
-function updateMarker(l) { if (markers[l.id]) markers[l.id].setIcon(leadIcon(l)); }
+function updateMarker(l) { if (markers[l.id]) { markers[l.id].setIcon(leadIcon(l)); markers[l.id]._renderSig=''; } }
 
 // ── Filter Bar ────────────────────────────────────────────────────────────────
 function renderFilter() {

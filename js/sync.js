@@ -5,6 +5,16 @@ function setSyncDot(s) {
     d.style.background = s==='ok' ? 'var(--green)' : s==='err' ? 'var(--red)' : 'var(--yellow)';
     d.title = s==='ok' ? `Cloud synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : s==='err' ? 'Cloud sync needs attention' : 'Cloud sync in progress';
   }
+  updateOfflineUI();
+}
+
+function updateOfflineUI() {
+  const bar=document.getElementById('offlineBar'),txt=document.getElementById('offlineText'),btn=document.getElementById('retrySync');
+  if(!bar||!txt)return;
+  const pending=offlineQueue?.length||0,offline=!navigator.onLine;
+  bar.classList.toggle('open',offline||pending>0);bar.classList.toggle('online',!offline&&pending>0);
+  txt.textContent=offline?(pending?`Offline · ${pending} change${pending===1?'':'s'} saved`:'Offline field mode · saves stay on this phone'):`Online · syncing ${pending} change${pending===1?'':'s'}`;
+  if(btn){btn.style.display=offline?'none':'';btn.textContent='Sync now';}
 }
 
 // ── Data Transform ────────────────────────────────────────────────────────────
@@ -118,33 +128,43 @@ async function syncBillingFromSupabase() {
 // ── Offline Queue ─────────────────────────────────────────────────────────────
 let offlineQueue = [];
 try { offlineQueue = JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; } catch(e) {}
-function saveQueue() { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(offlineQueue)); } catch(e) {} }
+function saveQueue() { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(offlineQueue)); } catch(e) {} updateOfflineUI(); }
 function queueLead(l,error='') {
   if(!l?.id)return;
   markLeadSync(l,'queued',error);
-  const item={id:l.id,lead:{...l},attempts:0,queued_at:new Date().toISOString(),last_error:String(error||'')};
+  const item={type:'upsert',id:l.id,lead:{...l},attempts:0,queued_at:new Date().toISOString(),last_error:String(error||'')};
   const i = offlineQueue.findIndex(x => (x.id||x.lead?.id) === l.id);
   if (i >= 0) offlineQueue[i] = {...item,attempts:(offlineQueue[i].attempts||0)}; else offlineQueue.push(item);
   saveQueue(); setSyncDot('busy');
   const dot = document.getElementById('syncDot');
   if (dot) dot.title = offlineQueue.length + ' changes queued';
 }
+function queueDelete(id,error=''){
+  if(!id)return;const item={type:'delete',id,attempts:0,queued_at:new Date().toISOString(),last_error:String(error||'')};
+  const i=offlineQueue.findIndex(x=>x.id===id);if(i>=0)offlineQueue[i]=item;else offlineQueue.push(item);saveQueue();setSyncDot('busy');
+}
 async function flushQueue() {
-  if (!sb || !session().team_id || !offlineQueue.length) return;
+  if (!sb || !session().team_id || !offlineQueue.length || !navigator.onLine) { updateOfflineUI(); return; }
   setSyncDot('busy');
   const q = [...offlineQueue]; offlineQueue = []; saveQueue();
   const failed = [];
-  for (const item of q) {
-    const l=item.lead||item;
+  const deletes=q.filter(x=>x.type==='delete'),upserts=q.filter(x=>x.type!=='delete');
+  for(let i=0;i<upserts.length;i+=100){
+    const batch=upserts.slice(i,i+100);
     try {
-      const { error }=await sb.from('leads').upsert(localToRemote(l), { onConflict:'local_id' });
-      if(error)throw error; markLeadSync(state.leads.find(x=>x.id===l.id),'synced');
+      const {error}=await sb.from('leads').upsert(batch.map(x=>localToRemote(x.lead||x)),{onConflict:'local_id'});
+      if(error)throw error;batch.forEach(x=>markLeadSync(state.leads.find(l=>l.id===x.id),'synced'));
     }
-    catch(e) { failed.push({id:l.id,lead:l,attempts:(item.attempts||0)+1,queued_at:item.queued_at||new Date().toISOString(),last_error:e.message||String(e)}); }
+    catch(e){batch.forEach(x=>failed.push({...x,attempts:(x.attempts||0)+1,last_error:e.message||String(e)}));}
+  }
+  for(const item of deletes){
+    try{const {error}=await sb.from('leads').delete().eq('local_id',item.id).eq('team_id',session().team_id);if(error)throw error;}
+    catch(e){failed.push({...item,attempts:(item.attempts||0)+1,last_error:e.message||String(e)});}
   }
   offlineQueue = failed; saveQueue();
-  if (!failed.length) { toast('✓ ' + q.length + ' queued changes synced'); setSyncDot('ok'); }
-  else setSyncDot('err');
+  saveState();
+  if (!failed.length) { toast('✓ ' + q.length + ' offline change' + (q.length===1?'':'s') + ' synced'); setSyncDot('ok'); }
+  else {toast(`${failed.length} change${failed.length===1?'':'s'} still waiting`);setSyncDot('err');}
 }
 
 // ── Upsert Helpers ────────────────────────────────────────────────────────────
@@ -180,8 +200,9 @@ async function deleteLeadRemote(id) {
   if (!sb) return;
   const tid = session().team_id;
   if (!tid) return;
+  if(!navigator.onLine){queueDelete(id);return;}
   try { const { error }=await sb.from('leads').delete().eq('local_id', id).eq('team_id', tid); if(error)throw error; }
-  catch(e) { console.warn('Del:', e); setSyncDot('err'); }
+  catch(e) { queueDelete(id,e.message||e);console.warn('Del queued:', e); }
 }
 
 // ── Realtime ──────────────────────────────────────────────────────────────────

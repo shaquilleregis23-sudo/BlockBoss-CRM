@@ -30,6 +30,10 @@ document.getElementById('openLogin').onclick    = openLogin;
 document.getElementById('openLaunch').onclick   = launch;
 document.getElementById('exportTop').onclick    = exportBackup;
 document.getElementById('cancelLoad').onclick   = () => loadCancelled = true;
+const retrySyncBtn=document.getElementById('retrySync');
+if(retrySyncBtn)retrySyncBtn.onclick=()=>{if(!navigator.onLine)return toast('Still offline');flushQueue();};
+window.addEventListener('offline',()=>{updateOfflineUI();toast('Offline mode — changes stay safe on this phone');});
+window.addEventListener('online',()=>{updateOfflineUI();toast('Back online — syncing changes');flushQueue();});
 
 document.addEventListener('change', e => {
   if (e.target.id === 'backupFile') importBackup(e.target.files[0]);
@@ -49,11 +53,12 @@ window._openCreateFromDraft = () => openCreate(window._draftLatLng);
 function updateLabelViz() { document.getElementById('map').classList.toggle('show-prop-labels', map.getZoom() >= 17); }
 map.on('zoomend', updateLabelViz);
 let _viewportRenderTimer=null;
-map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,120);});
+map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,220);});
 updateLabelViz();
 
 // ── Initial Render & Sync ─────────────────────────────────────────────────────
 renderAll();
+updateOfflineUI();
 (async()=>{
   const restored = typeof hydrateLeadsFromIndexedDB === 'function' ? await hydrateLeadsFromIndexedDB() : 0;
   if (restored) renderAll();

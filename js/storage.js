@@ -1,5 +1,5 @@
 // ── IndexedDB lead + enrichment cache ────────────────────────────────────────
-const IDB_NAME='m2_hybrid_v1', IDB_VERSION=1;
+const IDB_NAME='m2_hybrid_v1', IDB_VERSION=2;
 let _idbPromise=null, _idbTimer=null;
 function openHybridDB(){
   if(_idbPromise)return _idbPromise;
@@ -9,6 +9,7 @@ function openHybridDB(){
       const db=req.result;
       if(!db.objectStoreNames.contains('leads'))db.createObjectStore('leads',{keyPath:'id'});
       if(!db.objectStoreNames.contains('enrichment'))db.createObjectStore('enrichment',{keyPath:'key'});
+      if(!db.objectStoreNames.contains('territories'))db.createObjectStore('territories',{keyPath:'key'});
     };
     req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
   });
@@ -26,6 +27,10 @@ async function idbReplaceAll(storeName,rows){
 async function idbGetAll(storeName){
   const db=await openHybridDB();
   return await new Promise((resolve,reject)=>{const req=db.transaction(storeName,'readonly').objectStore(storeName).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});
+}
+async function idbGet(storeName,key){
+  const db=await openHybridDB();
+  return await new Promise((resolve,reject)=>{const req=db.transaction(storeName,'readonly').objectStore(storeName).get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});
 }
 function scheduleLeadPersistence(leads){
   clearTimeout(_idbTimer); const snapshot=(leads||[]).map(x=>({...x}));
@@ -46,4 +51,11 @@ async function enrichmentCacheGet(keys){
 async function enrichmentCachePut(entries,ttlDays=30){
   const expires_at=Date.now()+ttlDays*86400000;
   await idbPutMany('enrichment',entries.map(([key,value])=>({key,value,expires_at,updated_at:Date.now()})));
+}
+function territoryCacheKey(bounds){return 'pluto:'+bounds.map(n=>(+n).toFixed(4)).join(':');}
+async function territoryCacheGet(bounds,allowExpired=false){
+  try{const row=await idbGet('territories',territoryCacheKey(bounds));if(!row)return null;if(!allowExpired&&row.expires_at<Date.now())return null;return row.rows||null;}catch(e){console.warn('Territory cache read:',e);return null;}
+}
+async function territoryCachePut(bounds,name,rows,ttlDays=7){
+  try{await idbPutMany('territories',[{key:territoryCacheKey(bounds),name,rows,updated_at:Date.now(),expires_at:Date.now()+ttlDays*86400000}]);}catch(e){console.warn('Territory cache save:',e);}
 }

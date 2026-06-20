@@ -165,10 +165,16 @@ async function loadPlutoBounds(bounds, name = 'this area') {
       `ownername IS NOT NULL`
     ].join(' AND ');
     const url = `${PLUTO}?$where=${encodeURIComponent(where)}&$limit=50000&$select=bbl,address,borough,bldgclass,ownername,yearbuilt,lotarea,assesstot,unitsres,zipcode,latitude,longitude`;
-    sub.textContent = 'Fetching NYC PLUTO records…';
-    const resp = await fetch(url);
-    if (!resp.ok) { const err = await resp.text(); throw new Error(`API ${resp.status}: ${err.slice(0, 120)}`); }
-    const data = await resp.json();
+    let data = await territoryCacheGet(bounds,!navigator.onLine);
+    if(data){sub.textContent=`Using cached ${name} records${navigator.onLine?'':' · offline'}`;}
+    else {
+      if(!navigator.onLine)throw new Error('This territory is not cached yet. Reconnect once and load it before going offline.');
+      sub.textContent = 'Fetching NYC PLUTO records…';
+      const resp = await fetch(url);
+      if (!resp.ok) { const err = await resp.text(); throw new Error(`API ${resp.status}: ${err.slice(0, 120)}`); }
+      data = await resp.json();
+      if(Array.isArray(data))territoryCachePut(bounds,name,data);
+    }
     if (!Array.isArray(data)) throw new Error('Bad response: ' + JSON.stringify(data).slice(0, 120));
     for (let i = 0; i < data.length; i++) {
       if (loadCancelled) break;
