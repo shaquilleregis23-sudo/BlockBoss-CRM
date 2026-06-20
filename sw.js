@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v14-block-data-push';
+const CACHE = 'm2-hybrid-production-v15-sequence-progress-health-tests';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',

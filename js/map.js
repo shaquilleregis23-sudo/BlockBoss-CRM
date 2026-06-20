@@ -9,6 +9,7 @@ const markerLayer = typeof L.markerClusterGroup === 'function'
   ? L.markerClusterGroup({ chunkedLoading:true, chunkInterval:80, chunkDelay:24, disableClusteringAtZoom:17, maxClusterRadius:46, removeOutsideVisibleBounds:true })
   : L.layerGroup();
 markerLayer.addTo(map);
+const territoryProgressLayer=L.layerGroup().addTo(map);
 
 // ── Marker Rendering ──────────────────────────────────────────────────────────
 function leadIcon(l) {

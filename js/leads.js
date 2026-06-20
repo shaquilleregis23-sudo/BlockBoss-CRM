@@ -349,33 +349,38 @@ async function enrichWithACRIS(scope='view'){
 
 // ── Navigation Helpers ────────────────────────────────────────────────────────
 function parseDoorAddress(addr){
-  const m=String(addr||'').trim().toUpperCase().match(/^(\d+)(?:-(\d+))?\s+(.+)$/);if(!m)return null;
-  const prefix=+m[1],suffix=m[2]?+m[2]:null,seq=suffix??prefix;
-  const street=m[3].replace(/\bAVENUE\b/g,'AVE').replace(/\bSTREET\b/g,'ST').replace(/\bROAD\b/g,'RD').replace(/\bBOULEVARD\b/g,'BLVD').replace(/\bPLACE\b/g,'PL').replace(/\bCOURT\b/g,'CT').replace(/[^A-Z0-9]/g,'');
-  return {street,block:suffix!==null?String(prefix):String(Math.floor(prefix/100)),seq,parity:Math.abs(seq)%2,hyphen:suffix!==null};
+  const m=String(addr||'').trim().toUpperCase().match(/^(\d+)(?:-(\d+)([A-Z]?))?([A-Z]?)\s+(.+)$/);if(!m)return null;
+  const prefix=+m[1],suffix=m[2]?+m[2]:null,letter=(m[3]||m[4]||'').toUpperCase(),seq=suffix??prefix,letterRank=letter?letter.charCodeAt(0)-64:0;
+  const street=m[5].replace(/\bAVENUE\b/g,'AVE').replace(/\bSTREET\b/g,'ST').replace(/\bROAD\b/g,'RD').replace(/\bBOULEVARD\b/g,'BLVD').replace(/\bPLACE\b/g,'PL').replace(/\bCOURT\b/g,'CT').replace(/\bLANE\b/g,'LN').replace(/\bDRIVE\b/g,'DR').replace(/\bEAST\b/g,'E').replace(/\bWEST\b/g,'W').replace(/\bNORTH\b/g,'N').replace(/\bSOUTH\b/g,'S').replace(/(\d+)(ST|ND|RD|TH)\b/g,'$1').replace(/\b(APT|UNIT|FL)\b.*$/,'').replace(/[^A-Z0-9]/g,'');
+  return {street,block:suffix!==null?String(prefix):String(Math.floor(prefix/100)),seq,sortKey:seq+letterRank/100,letter,parity:Math.abs(seq)%2,hyphen:suffix!==null};
 }
+function doorAddressOptions(l){return [...new Set([l?.addr,l?.alternate_addr,l?.corner_addr,l?.raw_data?.alternate_address].filter(Boolean))].map(parseDoorAddress).filter(Boolean);}
+function matchingDoorAddress(l,street,block){return doorAddressOptions(l).find(p=>p.street===street&&p.block===block)||null;}
+function blockWalkKey(l){const p=parseDoorAddress(l?.addr);return p?`${p.street}:${p.block}`:'';}
+function blockWalkMemory(){try{return JSON.parse(localStorage.getItem('m2_block_walk_memory_v1'))||{};}catch(e){return {};}}
+function rememberBlockWalk(l,direction=window._blockWalkDirection||1){const key=blockWalkKey(l);if(!key)return;const m=blockWalkMemory();m[key]={lead_id:l.id,address:l.addr,direction,side:parseDoorAddress(l.addr)?.parity,updated_at:new Date().toISOString()};localStorage.setItem('m2_block_walk_memory_v1',JSON.stringify(m));}
 function nextDoorLead(current){
   const p=parseDoorAddress(current?.addr);if(!p)return null;
-  const direction=window._blockWalkDirection||1;
+  const direction=window._blockWalkDirection||blockWalkMemory()[blockWalkKey(current)]?.direction||1;
   const terminal=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']);
-  const candidates=scopedLeads().filter(l=>l.id!==current.id&&!terminal.has(l.status||'fresh')).map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===p.parity&&(direction>0?x.p.seq>p.seq:x.p.seq<p.seq));
-  candidates.sort((a,b)=>Math.abs(a.p.seq-p.seq)-Math.abs(b.p.seq-p.seq)||Math.hypot((+a.l.lat||0)-(+current.lat||0),(+a.l.lng||0)-(+current.lng||0))-Math.hypot((+b.l.lat||0)-(+current.lat||0),(+b.l.lng||0)-(+current.lng||0)));
+  const candidates=scopedLeads().filter(l=>l.id!==current.id&&!terminal.has(l.status||'fresh')).map(l=>({l,p:matchingDoorAddress(l,p.street,p.block)})).filter(x=>x.p&&x.p.parity===p.parity&&(direction>0?x.p.sortKey>p.sortKey:x.p.sortKey<p.sortKey));
+  candidates.sort((a,b)=>Math.abs(a.p.sortKey-p.sortKey)-Math.abs(b.p.sortKey-p.sortKey)||Math.hypot((+a.l.lat||0)-(+current.lat||0),(+a.l.lng||0)-(+current.lng||0))-Math.hypot((+b.l.lat||0)-(+current.lat||0),(+b.l.lng||0)-(+current.lng||0)));
   return candidates[0]?.l||null;
 }
 function blockWalkLeads(current,parity=parseDoorAddress(current?.addr)?.parity){
   const p=parseDoorAddress(current?.addr);if(!p)return [];
   const terminal=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']);
-  return scopedLeads().map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===parity&&!terminal.has(x.l.status||'fresh')).sort((a,b)=>a.p.seq-b.p.seq).map(x=>x.l);
+  return scopedLeads().map(l=>({l,p:matchingDoorAddress(l,p.street,p.block)})).filter(x=>x.p&&x.p.parity===parity&&!terminal.has(x.l.status||'fresh')).sort((a,b)=>a.p.sortKey-b.p.sortKey).map(x=>x.l);
 }
 function openBlockWalk(current){
   if(!current)return toast('Open or complete a lead first');const p=parseDoorAddress(current.addr);if(!p)return toast('This address cannot be sequenced');
-  const same=blockWalkLeads(current,p.parity),opposite=blockWalkLeads(current,1-p.parity);window._blockWalkCurrent=current.id;
+  const same=blockWalkLeads(current,p.parity),opposite=blockWalkLeads(current,1-p.parity),memory=blockWalkMemory()[blockWalkKey(current)];window._blockWalkCurrent=current.id;
   const list=(arr,clickable=true)=>arr.slice(0,20).map((l,i)=>`<div class="mini-item" ${clickable?`data-open="${l.id}"`:''}><div class="nm">${i+1}. ${esc(l.addr)}</div><div class="meta">${esc(nameOf(l))} · ${esc(LABEL[l.status||'fresh'])}</div></div>`).join('')||'<p class="sub">No untouched homes loaded.</p>';
-  modal('🏠 Block-Walk Preview',`<p class="sub"><b>Current:</b> ${esc(current.addr)}<br>Locked to ${p.parity?'odd':'even'} addresses on this block.</p><h3>Current side · ${same.length}</h3>${list(same)}<button class="save-btn green" data-action="startBlockWalk">Start / Continue This Side</button><details class="clean"><summary>Opposite side · ${opposite.length}</summary><div class="inner">${list(opposite,false)}<button class="save-btn gold" data-action="switchBlockSide">Switch to Opposite Side</button></div></details>`);
+  modal('🏠 Block-Walk Preview',`<p class="sub"><b>Current:</b> ${esc(current.addr)}<br>Locked to ${p.parity?'odd':'even'} addresses on this block.${memory?`<br>Resume saved: ${esc(memory.address)} · ${new Date(memory.updated_at).toLocaleString()}`:''}</p><h3>Current side · ${same.length}</h3>${list(same)}<button class="save-btn green" data-action="startBlockWalk">Start / Continue This Side</button><details class="clean"><summary>Opposite side · ${opposite.length}</summary><div class="inner">${list(opposite,false)}<button class="save-btn gold" data-action="switchBlockSide">Switch to Opposite Side</button></div></details>`);
 }
 function startBlockWalk(opposite=false){
   const current=state.leads.find(x=>x.id===window._blockWalkCurrent)||state.leads.find(x=>x.id===lastWorkedLeadId);if(!current)return toast('Block position unavailable');
-  const p=parseDoorAddress(current.addr),arr=blockWalkLeads(current,opposite?1-p.parity:p.parity);closeModal();if(!arr.length)return toast('No untouched homes on that side');window._blockWalkDirection=opposite?-1:1;goLead(opposite?arr[arr.length-1]:arr[0]);
+  const p=parseDoorAddress(current.addr),arr=blockWalkLeads(current,opposite?1-p.parity:p.parity);closeModal();if(!arr.length)return toast('No untouched homes on that side');window._blockWalkDirection=opposite?-1:1;const target=opposite?arr[arr.length-1]:arr[0];rememberBlockWalk(target,window._blockWalkDirection);goLead(target);
 }
 function goNextDoorFrom(current){
   if(!current)return toast('Open or complete a lead first');const next=nextDoorLead(current);
@@ -427,7 +432,7 @@ async function enablePushNotifications(){
     const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(VAPID_PUBLIC_KEY)});
     const j=sub.toJSON(),{error}=await sb.from('push_subscriptions').upsert({user_id:s.user_id,team_id:s.team_id,endpoint:sub.endpoint,p256dh:j.keys?.p256dh||'',auth:j.keys?.auth||'',user_agent:navigator.userAgent,updated_at:new Date().toISOString()},{onConflict:'endpoint'});if(error)throw error;
     localStorage.setItem('m2_push_enabled','1');toast('✓ Background callback alerts enabled');
-  }catch(e){console.warn('Push setup:',e);toast('Push setup failed: '+(e.message||'Try again'));}
+  }catch(e){console.warn('Push setup:',e);logHealth('error','push_setup',e.message||String(e));toast('Push setup failed: '+(e.message||'Try again'));}
 }
 const callbackTimers=new Map();
 function scheduleCallbackNotifs() {

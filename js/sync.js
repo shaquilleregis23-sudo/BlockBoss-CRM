@@ -1,4 +1,8 @@
 // ── Sync Status ───────────────────────────────────────────────────────────────
+async function logHealth(level,category,message,context={}){
+  const s=session();if(!sb||!navigator.onLine||!s.auth_v2||!s.user_id||!s.team_id)return;const key=`${level}:${category}:${String(message).slice(0,80)}`,now=Date.now();window._healthThrottle=window._healthThrottle||{};if(now-(window._healthThrottle[key]||0)<300000)return;window._healthThrottle[key]=now;
+  try{await sb.from('crm_health_events').insert({team_id:s.team_id,user_id:s.user_id,level,category,message:String(message).slice(0,500),context:{...context,user_agent:navigator.userAgent,online:navigator.onLine,queued:typeof offlineQueue!=='undefined'?offlineQueue.length:0}});}catch(e){}
+}
 function setSyncDot(s) {
   const d = document.getElementById('syncDot');
   if (d) {
@@ -95,7 +99,7 @@ async function syncFromSupabase() {
       state.leads=dedupeLeadArray([...merged.values()]); saveState(); renderAll();
     }
     setSyncDot('ok');
-  } catch(e) { setSyncDot('err'); console.warn('Sync:', e); }
+  } catch(e) { setSyncDot('err'); console.warn('Sync:', e); logHealth('error','sync_pull',e.message||String(e)); }
 }
 
 async function syncBillingFromSupabase() {
@@ -156,7 +160,7 @@ async function flushQueue() {
   offlineQueue = failed; saveQueue();
   saveState();
   if (!failed.length) { toast('✓ ' + q.length + ' offline change' + (q.length===1?'':'s') + ' synced'); setSyncDot('ok'); }
-  else {toast(`${failed.length} change${failed.length===1?'':'s'} still waiting`);setSyncDot('err');}
+  else {toast(`${failed.length} change${failed.length===1?'':'s'} still waiting`);setSyncDot('err');logHealth('warning','offline_queue',`${failed.length} changes failed to sync`,{failed:failed.length});}
 }
 
 // ── Upsert Helpers ────────────────────────────────────────────────────────────
@@ -172,7 +176,7 @@ async function upsertLead(l) {
     const { error }=await sb.from('leads').upsert(row, { onConflict:'local_id' });
     if(error)throw error; markLeadSync(l,'synced'); saveState(); setSyncDot('ok');
   }
-  catch(e) { queueLead(l,e.message||e); console.warn('Queued:', e); }
+  catch(e) { queueLead(l,e.message||e); console.warn('Queued:', e); logHealth('warning','lead_upsert',e.message||String(e),{lead_id:l.id}); }
 }
 async function upsertBatch(leads) {
   if (!sb) return;

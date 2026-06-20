@@ -1,6 +1,8 @@
 // ── Event Listeners & Init ────────────────────────────────────────────────────
 const pushOpenLeadId=new URLSearchParams(location.search).get('open_lead');
 document.addEventListener('click', parseAction, true);
+window.addEventListener('error',e=>logHealth('error','javascript',e.message||'JavaScript error',{file:e.filename,line:e.lineno,column:e.colno}));
+window.addEventListener('unhandledrejection',e=>logHealth('error','promise',e.reason?.message||String(e.reason||'Unhandled promise rejection')));
 
 // Keep sheets and modals fitted to the visible iPhone viewport when Safari's
 // address bar or software keyboard changes the usable screen height.

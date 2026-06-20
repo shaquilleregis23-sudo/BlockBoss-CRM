@@ -145,6 +145,31 @@ async function mergeDuplicateGroup(i){
   const removeIds=new Set(sorted.slice(1).map(x=>x.id));state.leads=state.leads.filter(x=>!removeIds.has(x.id)).map(x=>x.id===primary.id?primary:x);saveState();await upsertLead(primary);for(const id of removeIds)await deleteLeadRemote(id);closeModal();renderAll();toast(`✓ Merged ${group.length} records into one lead`);
 }
 
+// ── Territory & Block Progress ───────────────────────────────────────────────
+window._territoryGroups=[];
+function territoryProgressGroups(){
+  const visited=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']),by=new Map();
+  for(const l of scopedLeads()){const territory=l.territory||l.boro||'Unassigned',key=territory,block=blockWalkKey(l)||`unparsed:${normalizeAddress(l.addr)}`;if(!by.has(key))by.set(key,{name:territory,leads:[],blocks:new Map()});const g=by.get(key);g.leads.push(l);const arr=g.blocks.get(block)||[];arr.push(l);g.blocks.set(block,arr);}
+  return [...by.values()].map(g=>{g.done=g.leads.filter(l=>visited.has(l.status)).length;g.pct=g.leads.length?Math.round(g.done/g.leads.length*100):0;g.blockRows=[...g.blocks.entries()].map(([key,leads])=>{const done=leads.filter(l=>visited.has(l.status)).length;return {key,leads,done,pct:Math.round(done/leads.length*100)};}).sort((a,b)=>a.pct-b.pct||b.leads.length-a.leads.length);return g;}).sort((a,b)=>a.pct-b.pct||b.leads.length-a.leads.length);
+}
+function openTerritoryProgress(){
+  const groups=territoryProgressGroups();window._territoryGroups=groups;
+  modal('📊 Territory Progress',`<p class="sub">Completion counts every final door disposition. Tap a territory to view its block heatmap and unfinished blocks.</p>${groups.map((g,i)=>`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><h3>${esc(g.name)}</h3><b>${g.pct}%</b></div><div class="track"><div class="fill" style="width:${g.pct}%;background:${g.pct>=80?'var(--green)':g.pct>=40?'var(--gold)':'var(--red)'}"></div></div><p class="sub" style="margin-top:7px">${g.done.toLocaleString()} completed · ${(g.leads.length-g.done).toLocaleString()} untouched · ${g.blockRows.length} blocks</p><button class="save-btn blue" data-action="showTerritoryProgress" data-i="${i}">Open Block Heatmap</button></div>`).join('')||'<div class="search-empty">No territory leads loaded.</div>'}`);
+}
+function showTerritoryProgress(i){
+  const g=window._territoryGroups[i];if(!g)return toast('Territory changed — reopen progress');territoryProgressLayer.clearLayers();const pts=[];
+  for(const b of g.blockRows){const geo=b.leads.filter(l=>l.lat&&l.lng);if(!geo.length)continue;const lat=geo.reduce((s,l)=>s+(+l.lat),0)/geo.length,lng=geo.reduce((s,l)=>s+(+l.lng),0)/geo.length,color=b.pct>=80?'#3fb950':b.pct>=40?'#d29922':'#f85149';L.circleMarker([lat,lng],{radius:12,color,fillColor:color,fillOpacity:.55,weight:2}).bindPopup(`<b>${esc(g.name)}</b><br>${b.pct}% complete · ${b.done}/${b.leads.length}<br>${esc(b.leads[0].addr||'Block')}`).addTo(territoryProgressLayer);pts.push([lat,lng]);}
+  closeModal();switchView('map');if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.12));toast(`${g.name}: ${g.pct}% complete`);
+}
+
+// ── Production Health Dashboard ──────────────────────────────────────────────
+async function openHealthDashboard(){
+  if(!isMaster())return toast('Manager access required');const device={online:navigator.onLine,queued:typeof offlineQueue!=='undefined'?offlineQueue.length:0,push:localStorage.getItem('m2_push_enabled')==='1',sw:'serviceWorker'in navigator};modal('🩺 Production Health',`<div class="metric-grid"><div class="metric"><div class="k">Network</div><div class="v" style="font-size:14px">${device.online?'Online':'Offline'}</div></div><div class="metric"><div class="k">Queue</div><div class="v">${device.queued}</div></div><div class="metric"><div class="k">Push</div><div class="v" style="font-size:14px">${device.push?'On':'Off'}</div></div><div class="metric"><div class="k">Offline App</div><div class="v" style="font-size:14px">${device.sw?'Ready':'No'}</div></div></div><div id="healthEvents"><p class="sub">Loading team health events…</p></div>`);
+  let rows=[];if(sb&&session().team_id){const {data}=await sb.from('crm_health_events').select('*').eq('team_id',session().team_id).order('created_at',{ascending:false}).limit(150);rows=data||[];}
+  const since=Date.now()-24*3600000,errors=rows.filter(r=>r.level==='error'&&new Date(r.created_at)>since).length,warnings=rows.filter(r=>r.level==='warning'&&new Date(r.created_at)>since).length,el=document.getElementById('healthEvents');if(!el)return;
+  el.innerHTML=`<div class="metric-grid" style="margin-top:10px"><div class="metric"><div class="k">24h Errors</div><div class="v" style="color:${errors?'var(--red)':'var(--green)'}">${errors}</div></div><div class="metric"><div class="k">24h Warnings</div><div class="v" style="color:${warnings?'var(--gold)':'var(--green)'}">${warnings}</div></div></div><h3 style="margin:14px 0 8px">Recent Events</h3>${rows.map(r=>`<div class="mini-item"><div class="nm" style="color:${r.level==='error'?'var(--red)':r.level==='warning'?'var(--gold)':'var(--green)'}">${esc(r.level.toUpperCase())} · ${esc(r.category)}</div><div class="meta">${new Date(r.created_at).toLocaleString()} · ${esc(r.message)}</div></div>`).join('')||'<p class="sub">✓ No production errors reported.</p>'}`;
+}
+
 // ── Callback Scheduler ───────────────────────────────────────────────────────
 function openCallbackScheduler(l){
   if(!l)return;
@@ -156,7 +181,7 @@ function saveScheduledCallback(btn){
   const mins=+btn.dataset.minutes||0,when=mins?new Date(Date.now()+mins*60000):new Date(val('callbackWhen'));
   if(isNaN(when))return toast('Choose a callback date and time');
   l.status='callback';l.callback_due=when.toISOString();const note=val('callbackNote');if(note)l.notes=[l.notes,note].filter(Boolean).join('\n');
-  addLog(l,'callback',`Callback scheduled ${when.toLocaleString()}${note?' · '+note:''}`);lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);saveState();upsertLead(l);requestNotifPerm().then(scheduleCallbackNotifs);
+  addLog(l,'callback',`Callback scheduled ${when.toLocaleString()}${note?' · '+note:''}`);lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);rememberBlockWalk(l);saveState();upsertLead(l);requestNotifPerm().then(scheduleCallbackNotifs);
   navigator.vibrate?.(18);closeModal();closeSheet();renderAll();toast(`📞 Callback ${when.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}`);setTimeout(()=>goNextDoorFrom(l),420);
 }
 function openFollowups(){
@@ -198,6 +223,7 @@ function parseAction(e) {
     if(a.dataset.disp==='callback'){openCallbackScheduler(l);return;}
     l.status = a.dataset.disp; l.sun_score = sunScore(l);
     lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);
+    rememberBlockWalk(l);
     addLog(l, a.dataset.disp, `${LABEL[a.dataset.disp]} saved`);
     saveState(); upsertLead(l);
     if (window.posthog) posthog.capture('lead_status_changed', { status:l.status, addr:l.addr });
@@ -264,6 +290,9 @@ function parseAction(e) {
   else if (act === 'restoreAuditLead') restoreAuditLead(a.dataset.id);
   else if (act === 'duplicateManager') openDuplicateManager();
   else if (act === 'mergeDuplicate') mergeDuplicateGroup(+a.dataset.i);
+  else if (act === 'territoryProgress') openTerritoryProgress();
+  else if (act === 'showTerritoryProgress') showTerritoryProgress(+a.dataset.i);
+  else if (act === 'healthDashboard') openHealthDashboard();
   else if (act === 'scheduleCallback') saveScheduledCallback(a);
   else if (act === 'enablePush') enablePushNotifications();
   else if (act === 'next' || act === 'nextBest') {window._blockWalkDirection=1;goLead(nextBestLead());}
