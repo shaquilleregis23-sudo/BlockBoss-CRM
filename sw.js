@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v8-iphone';
+const CACHE = 'm2-hybrid-production-v9-lead-sheet';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
   './js/config.js','./js/state.js','./js/storage.js','./js/leads.js','./js/sync.js',
