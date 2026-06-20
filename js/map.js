@@ -34,7 +34,7 @@ function renderMarkers() {
       return;
     }
     const m = L.marker([+l.lat, +l.lng], { icon:leadIcon(l) });
-    m.on('click', () => openLead(l.id));
+    m.on('click', () => {window._blockWalkDirection=1;openLead(l.id);});
     m.bindPopup(`<b>${esc(nameOf(l))}</b><br>${esc(l.addr||'')}<br>☀ ${sunScore(l)} · Q${leadQuality(l)} · ${LABEL[l.status||'fresh']}`);
     m._renderSig=sig; markerLayer.addLayer(m); markers[l.id] = m;
   });
@@ -44,7 +44,7 @@ function updateMarker(l) { if (markers[l.id]) { markers[l.id].setIcon(leadIcon(l
 // ── Filter Bar ────────────────────────────────────────────────────────────────
 function renderFilter() {
   const bar = document.getElementById('filterBar'), arr = scopedLeads();
-  const filters = [['all','All'],['hot','🔥 Hot'],['high_sun','☀️ Sun'],['fresh','Fresh'],['knocked','Knock'],['not_home','Not Home'],['interested','Interested'],['callback','Callback'],['set','Set'],['sat','Sat'],['closed','Closed'],['do_not_knock','DNK'],['pluto','PLUTO'],['manual','Manual'],['imported','CSV'],['entity','LLC'],['hpd','🔓 HPD'],['acris','📜 ACRIS'],['joint','👥 Joint'],['verify','🔍 Verify'],['assigned','Assigned']];
+  const filters = [['all','All'],['hot','🔥 Hot'],['high_sun','☀️ Sun'],['fresh','Fresh'],['knocked','Knock'],['not_home','Not Home'],['interested','Interested'],['callback','Callback'],['set','Set'],['sat','Sat'],['closed','Closed'],['do_not_knock','DNK'],['pluto','PLUTO'],['manual','Manual'],['imported','CSV'],['entity','LLC'],['hpd','🔓 HPD'],['acris','📜 ACRIS'],['owner_low','⚠ Owner Low'],['joint','👥 Joint'],['verify','🔍 Verify'],['assigned','Assigned']];
   const counts = {}; filters.forEach(([k]) => counts[k] = filterLeadsBy(k, arr).length);
   const active = filters.find(x => x[0] === state.filter) || filters[0];
   document.getElementById('filterToggle').textContent = `Filter: ${active[1]} ${counts[active[0]]||0} ▾`;

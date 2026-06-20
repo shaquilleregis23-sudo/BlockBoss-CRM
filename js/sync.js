@@ -67,20 +67,12 @@ function newerLead(a,b) {
   return syncTime(a)>syncTime(b)?a:b;
 }
 function dedupeLeadArray(rows) {
-  const byId=new Map(), byIdentity=new Map();
+  const byId=new Map();
   for(const l of rows||[]){
     if(!l?.id)continue; const prior=byId.get(l.id); byId.set(l.id,newerLead(prior,l));
   }
-  for(const l of byId.values()){
-    const key=leadIdentityKey(l); if(key==='addr::')continue;
-    const prior=byIdentity.get(key);
-    if(!prior)byIdentity.set(key,l);
-    else {
-      const preferred=(prior.status!=='fresh'&&l.status==='fresh')?prior:(l.status!=='fresh'&&prior.status==='fresh')?l:newerLead(prior,l);
-      const dropped=preferred===prior?l:prior; preferred.notes=[preferred.notes,dropped.notes].filter(Boolean).join('\n');
-      byIdentity.set(key,preferred); byId.delete(dropped.id);
-    }
-  }
+  // Preserve property duplicates for the manager-reviewed merge workflow.
+  // Automatic identity merging can silently discard purchased/manual details.
   return [...byId.values()];
 }
 

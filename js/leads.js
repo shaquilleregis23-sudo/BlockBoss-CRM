@@ -55,6 +55,15 @@ function statusBadge(s) {
   if (['not_qualified','do_not_knock','not_interested'].includes(s)) return 'red';
   return '';
 }
+function ownerConfidence(l){
+  const now=Date.now(),age=v=>v?Math.floor((now-new Date(v).getTime())/86400000):99999;
+  if(l.acris_owner_names?.length&&l.owner_freshness==='recent_deed')return {level:'high',label:'High owner confidence',source:'ACRIS recent deed',age:age(l.acris_recorded_at)};
+  if(l.hpd_enriched&&l.first&&l.last)return {level:'high',label:'High owner confidence',source:'NYC HPD registration',age:age(l.hpd_checked_at)};
+  if((l.pluto_owner_name||l.raw_owner)&&age(l.owner_refreshed_at)<180&&!l.entity&&!l.needs_verify)return {level:'high',label:'High owner confidence',source:'Fresh PLUTO owner',age:age(l.owner_refreshed_at)};
+  if(l.first&&l.last&&!l.entity)return {level:'medium',label:'Medium owner confidence',source:l.source==='imported'?'Purchased lead':'PLUTO / supplied name',age:age(l.owner_refreshed_at||l.updated_at)};
+  return {level:'low',label:'Low owner confidence',source:l.entity?'Entity / LLC needs verification':l.needs_verify?'Name needs verification':'Owner name missing',age:age(l.owner_refreshed_at||l.updated_at)};
+}
+function ownerConfidenceBadge(l){const c=ownerConfidence(l),cls=c.level==='high'?'hot':c.level==='medium'?'gold':'red';return `<span class="badge ${cls}" title="${esc(c.source)}">${c.level==='high'?'✓':c.level==='medium'?'~':'!'} Owner ${c.level}</span>`;}
 
 // ── Filtering ─────────────────────────────────────────────────────────────────
 function scopedLeads() {
@@ -80,6 +89,7 @@ function filterLeads(arr = scopedLeads()) {
   if (f === 'joint') return arr.filter(l => l.joint);
   if (f === 'verify') return arr.filter(l => l.needs_verify && !l.hpd_enriched);
   if (f === 'assigned') return arr.filter(l => l.assigned_agent || l.assigned_user_email);
+  if (f === 'owner_low') return arr.filter(l => ownerConfidence(l).level === 'low');
   return arr.filter(l => (l.status || 'fresh') === f);
 }
 function filterLeadsBy(f, arr) {
@@ -346,14 +356,30 @@ function parseDoorAddress(addr){
 }
 function nextDoorLead(current){
   const p=parseDoorAddress(current?.addr);if(!p)return null;
+  const direction=window._blockWalkDirection||1;
   const terminal=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']);
-  const candidates=scopedLeads().filter(l=>l.id!==current.id&&!terminal.has(l.status||'fresh')).map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===p.parity&&x.p.seq>p.seq);
-  candidates.sort((a,b)=>(a.p.seq-p.seq)-(b.p.seq-p.seq)||Math.hypot((+a.l.lat||0)-(+current.lat||0),(+a.l.lng||0)-(+current.lng||0))-Math.hypot((+b.l.lat||0)-(+current.lat||0),(+b.l.lng||0)-(+current.lng||0)));
+  const candidates=scopedLeads().filter(l=>l.id!==current.id&&!terminal.has(l.status||'fresh')).map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===p.parity&&(direction>0?x.p.seq>p.seq:x.p.seq<p.seq));
+  candidates.sort((a,b)=>Math.abs(a.p.seq-p.seq)-Math.abs(b.p.seq-p.seq)||Math.hypot((+a.l.lat||0)-(+current.lat||0),(+a.l.lng||0)-(+current.lng||0))-Math.hypot((+b.l.lat||0)-(+current.lat||0),(+b.l.lng||0)-(+current.lng||0)));
   return candidates[0]?.l||null;
+}
+function blockWalkLeads(current,parity=parseDoorAddress(current?.addr)?.parity){
+  const p=parseDoorAddress(current?.addr);if(!p)return [];
+  const terminal=new Set(['knocked','not_home','interested','callback','set','sat','closed','not_interested','do_not_knock','not_qualified']);
+  return scopedLeads().map(l=>({l,p:parseDoorAddress(l.addr)})).filter(x=>x.p&&x.p.street===p.street&&x.p.block===p.block&&x.p.parity===parity&&!terminal.has(x.l.status||'fresh')).sort((a,b)=>a.p.seq-b.p.seq).map(x=>x.l);
+}
+function openBlockWalk(current){
+  if(!current)return toast('Open or complete a lead first');const p=parseDoorAddress(current.addr);if(!p)return toast('This address cannot be sequenced');
+  const same=blockWalkLeads(current,p.parity),opposite=blockWalkLeads(current,1-p.parity);window._blockWalkCurrent=current.id;
+  const list=(arr,clickable=true)=>arr.slice(0,20).map((l,i)=>`<div class="mini-item" ${clickable?`data-open="${l.id}"`:''}><div class="nm">${i+1}. ${esc(l.addr)}</div><div class="meta">${esc(nameOf(l))} · ${esc(LABEL[l.status||'fresh'])}</div></div>`).join('')||'<p class="sub">No untouched homes loaded.</p>';
+  modal('🏠 Block-Walk Preview',`<p class="sub"><b>Current:</b> ${esc(current.addr)}<br>Locked to ${p.parity?'odd':'even'} addresses on this block.</p><h3>Current side · ${same.length}</h3>${list(same)}<button class="save-btn green" data-action="startBlockWalk">Start / Continue This Side</button><details class="clean"><summary>Opposite side · ${opposite.length}</summary><div class="inner">${list(opposite,false)}<button class="save-btn gold" data-action="switchBlockSide">Switch to Opposite Side</button></div></details>`);
+}
+function startBlockWalk(opposite=false){
+  const current=state.leads.find(x=>x.id===window._blockWalkCurrent)||state.leads.find(x=>x.id===lastWorkedLeadId);if(!current)return toast('Block position unavailable');
+  const p=parseDoorAddress(current.addr),arr=blockWalkLeads(current,opposite?1-p.parity:p.parity);closeModal();if(!arr.length)return toast('No untouched homes on that side');window._blockWalkDirection=opposite?-1:1;goLead(opposite?arr[arr.length-1]:arr[0]);
 }
 function goNextDoorFrom(current){
   if(!current)return toast('Open or complete a lead first');const next=nextDoorLead(current);
-  if(!next)return toast('No untouched next house loaded on this side of the block');
+  if(!next){openBlockWalk(current);return toast('This side is complete — choose whether to switch sides');}
   goLead(next);toast(`🏠 Next door: ${next.addr}`);
 }
 function nextBestLead() {
@@ -390,6 +416,18 @@ function demoMode() {
 async function requestNotifPerm() {
   if (!('Notification' in window) || Notification.permission !== 'default') return;
   await Notification.requestPermission();
+}
+function vapidBytes(key){const pad='='.repeat((4-key.length%4)%4),raw=atob((key+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+async function enablePushNotifications(){
+  const s=session();if(!s.auth_v2||!s.user_id||!s.team_id)return toast('Secure login required for background alerts');
+  if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))return toast('Background push is not supported in this browser');
+  if(/iPhone|iPad|iPod/.test(navigator.userAgent)&&!window.matchMedia('(display-mode: standalone)').matches)return toast('Add BlockBoss to your iPhone Home Screen first');
+  const permission=await Notification.requestPermission();if(permission!=='granted')return toast('Notification permission was not enabled');
+  try{
+    const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(VAPID_PUBLIC_KEY)});
+    const j=sub.toJSON(),{error}=await sb.from('push_subscriptions').upsert({user_id:s.user_id,team_id:s.team_id,endpoint:sub.endpoint,p256dh:j.keys?.p256dh||'',auth:j.keys?.auth||'',user_agent:navigator.userAgent,updated_at:new Date().toISOString()},{onConflict:'endpoint'});if(error)throw error;
+    localStorage.setItem('m2_push_enabled','1');toast('✓ Background callback alerts enabled');
+  }catch(e){console.warn('Push setup:',e);toast('Push setup failed: '+(e.message||'Try again'));}
 }
 const callbackTimers=new Map();
 function scheduleCallbackNotifs() {

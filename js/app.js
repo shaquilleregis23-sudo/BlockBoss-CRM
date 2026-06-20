@@ -1,4 +1,5 @@
 // ── Event Listeners & Init ────────────────────────────────────────────────────
+const pushOpenLeadId=new URLSearchParams(location.search).get('open_lead');
 document.addEventListener('click', parseAction, true);
 
 // Keep sheets and modals fitted to the visible iPhone viewport when Safari's
@@ -76,6 +77,7 @@ setInterval(checkDueCallbacks,30000);
   await initSecureAuth();
   if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
   if (session().team_id) { await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue(); }
+  if(pushOpenLeadId){history.replaceState({},'',location.pathname);setTimeout(()=>{const l=state.leads.find(x=>x.id===pushOpenLeadId);if(l)goLead(l);else toast('Callback lead is not assigned to this login');},350);}
 })();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

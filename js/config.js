@@ -1,6 +1,7 @@
 // ── Supabase ─────────────────────────────────────────────────────────────────
 const SB_URL = 'https://cghblukwgsqqwedlzmgh.supabase.co';
 const SB_KEY = 'sb_publishable_btkoyC4o37GZNUOFMKtasQ_KmLIrUVb';
+const VAPID_PUBLIC_KEY = 'BG2mv3IW-TyFX4Jicx6PErQsDtDMQEsWLEGQuBKGoF8pHz0NJM2O4-UnlG4uuH7_h0nyisAdS85dD9Vssqptbfs';
 let sb = null;
 try { sb = window.supabase?.createClient?.(SB_URL, SB_KEY) || null; } catch(e) { console.warn('Supabase init:', e); }
 

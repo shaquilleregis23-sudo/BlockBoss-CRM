@@ -123,6 +123,28 @@ async function restoreAuditLead(id){
   const lead=remoteToLocal(row),idx=state.leads.findIndex(x=>x.id===lead.id);if(idx>=0)state.leads[idx]=lead;else state.leads.push(lead);saveState();renderAll();closeModal();toast('✓ Deleted lead restored');
 }
 
+// ── Duplicate Detection & Safe Merge ─────────────────────────────────────────
+window._duplicateGroups=[];
+function duplicateGroups(){
+  const by=new Map();for(const l of scopedLeads()){const key=leadIdentityKey(l);if(key==='addr::')continue;const arr=by.get(key)||[];arr.push(l);by.set(key,arr);}return [...by.entries()].filter(([,arr])=>arr.length>1).map(([key,arr])=>({key,arr}));
+}
+function duplicateKeepScore(l){return (l.status&&l.status!=='fresh'?50:0)+(l.source==='manual'?30:l.source==='imported'?20:0)+(l.phone?12:0)+(l.email?8:0)+(l.hpd_enriched?18:0)+(l.acris_owner_names?.length?22:0)+leadQuality(l)/10;}
+function openDuplicateManager(){
+  if(!isMaster())return toast('Manager access required');const groups=duplicateGroups();window._duplicateGroups=groups;
+  modal('🧬 Duplicate Lead Manager',`<p class="sub">Matches use exact BBL or normalized property address. The merge keeps the strongest owner/contact record and combines notes, photos, and activity.</p>${groups.map((g,i)=>`<div class="card"><h3>${esc(g.arr[0].addr||g.key)} · ${g.arr.length} records</h3>${g.arr.map(l=>`<div class="mini-item"><div class="nm">${esc(nameOf(l))} · ${esc(l.source||'')}</div><div class="meta">${esc(l.phone||'No phone')} · ${esc(LABEL[l.status||'fresh'])} · ${ownerConfidence(l).level} owner confidence</div></div>`).join('')}<button class="save-btn green" data-action="mergeDuplicate" data-i="${i}">Review & Merge ${g.arr.length}</button></div>`).join('')||'<div class="search-empty">✓ No exact property duplicates found.</div>'}`);
+}
+async function mergeDuplicateGroup(i){
+  if(!isMaster())return toast('Manager access required');const group=window._duplicateGroups[i]?.arr;if(!group?.length)return toast('Duplicate group changed — rescan');
+  if(!confirm(`Merge ${group.length} records for ${group[0].addr||'this property'}? The extra records will be archived in Manager Audit.`))return;
+  const sorted=[...group].sort((a,b)=>duplicateKeepScore(b)-duplicateKeepScore(a)),primary={...sorted[0]},confidenceRank={high:3,medium:2,low:1},owner=[...sorted].sort((a,b)=>confidenceRank[ownerConfidence(b).level]-confidenceRank[ownerConfidence(a).level])[0];
+  const fields=['phone','email','monthly_bill','heating_bill','credit','roof_notes','notes','solar_status','heating_type','hvac_opportunity','callback_due','appt_time','assigned_agent','assigned_user_email','assigned_user_id','territory','zip','lat','lng','bbl'];
+  for(const l of sorted.slice(1))for(const f of fields)if((primary[f]===undefined||primary[f]===null||primary[f]===''||primary[f]==='unknown')&&l[f]!==undefined&&l[f]!==null&&l[f]!==''&&l[f]!=='unknown')primary[f]=l[f];
+  if(owner!==primary&&ownerConfidence(owner).level==='high'){for(const f of ['first','last','joint','coowner','hpd_enriched','hpd_type','acris_owner_names','acris_recorded_at','acris_document_id','owner_freshness','owner_refreshed_at','raw_owner'])if(owner[f]!==undefined)primary[f]=owner[f];}
+  const rank={fresh:0,knocked:1,not_home:1,interested:2,callback:3,set:4,sat:5,closed:6,not_interested:1,not_qualified:1,do_not_knock:6};primary.status=sorted.map(x=>x.status||'fresh').sort((a,b)=>(rank[b]||0)-(rank[a]||0))[0];
+  primary.notes=[...new Set(sorted.map(x=>x.notes).filter(Boolean))].join('\n');primary.photos=[...new Set(sorted.flatMap(x=>x.photos||[]))];primary.activity_log=sorted.flatMap(x=>x.activity_log||[]).sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,120);primary.merged_from_ids=sorted.slice(1).map(x=>x.id);primary.source_history=[...new Set(sorted.map(x=>x.source).filter(Boolean))];primary.updated_at=new Date().toISOString();addLog(primary,'merge',`Merged ${group.length} duplicate records`);
+  const removeIds=new Set(sorted.slice(1).map(x=>x.id));state.leads=state.leads.filter(x=>!removeIds.has(x.id)).map(x=>x.id===primary.id?primary:x);saveState();await upsertLead(primary);for(const id of removeIds)await deleteLeadRemote(id);closeModal();renderAll();toast(`✓ Merged ${group.length} records into one lead`);
+}
+
 // ── Callback Scheduler ───────────────────────────────────────────────────────
 function openCallbackScheduler(l){
   if(!l)return;
@@ -193,7 +215,7 @@ function parseAction(e) {
     else setTimeout(() => openLead(l.id), 420);
     return;
   }
-  if (a.dataset.open) { closeModal(); goLead(state.leads.find(x => x.id === a.dataset.open)); return; }
+  if (a.dataset.open) { window._blockWalkDirection=1;closeModal(); goLead(state.leads.find(x => x.id === a.dataset.open)); return; }
 
   // Named actions
   if (act === 'closeModal') closeModal();
@@ -240,9 +262,15 @@ function parseAction(e) {
   else if (act === 'openFollowups') openFollowups();
   else if (act === 'managerAudit') openManagerAudit();
   else if (act === 'restoreAuditLead') restoreAuditLead(a.dataset.id);
+  else if (act === 'duplicateManager') openDuplicateManager();
+  else if (act === 'mergeDuplicate') mergeDuplicateGroup(+a.dataset.i);
   else if (act === 'scheduleCallback') saveScheduledCallback(a);
-  else if (act === 'next' || act === 'nextBest') goLead(nextBestLead());
+  else if (act === 'enablePush') enablePushNotifications();
+  else if (act === 'next' || act === 'nextBest') {window._blockWalkDirection=1;goLead(nextBestLead());}
   else if (act === 'nextDoor') goNextDoorFrom(state.leads.find(x=>x.id===lastWorkedLeadId)||state.leads.find(x=>x.id===currentLeadId));
+  else if (act === 'blockWalk') openBlockWalk(state.leads.find(x=>x.id===currentLeadId)||state.leads.find(x=>x.id===lastWorkedLeadId));
+  else if (act === 'startBlockWalk') startBlockWalk(false);
+  else if (act === 'switchBlockSide') startBlockWalk(true);
   else if (act === 'locate') locate();
   else if (act === 'satellite') toggleSatellite();
   else if (act === 'walk' || act === 'route') optimizeRoute();

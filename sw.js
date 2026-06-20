@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v13-search-audit-next-door';
+const CACHE = 'm2-hybrid-production-v14-block-data-push';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
@@ -37,4 +37,11 @@ self.addEventListener('fetch', event => {
       return cached || network.catch(() => new Response('',{status:503,statusText:'Offline asset unavailable'}));
     })
   );
+});
+self.addEventListener('push',event=>{
+  let data={};try{data=event.data?.json()||{};}catch(e){data={title:'BlockBoss CRM',body:event.data?.text()||'Follow-up due'};}
+  event.waitUntil(self.registration.showNotification(data.title||'BlockBoss CRM',{body:data.body||'Follow-up due',tag:data.lead_id?'callback-'+data.lead_id:'blockboss',data:{url:data.url||'./',lead_id:data.lead_id||''},requireInteraction:true}));
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();const url=event.notification.data?.url||'./';event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{for(const c of list)if('focus'in c){c.navigate(url);return c.focus();}return clients.openWindow(url);}));
 });
