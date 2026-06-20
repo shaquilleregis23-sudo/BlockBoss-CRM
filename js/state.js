@@ -68,8 +68,10 @@ function billingPlan() { const key=String(getBilling().plan_key||'').replace(/_a
 function billingActive() {
   const b = getBilling();
   if (!b.plan_key) return false;
+  if (b.period_end && new Date(b.period_end).getTime()+86400000<Date.now()) return false;
   if (b.status === 'active') return true;
-  if (b.status === 'trial' && b.trial_end && new Date(b.trial_end) > new Date()) return true;
+  if (['trial','trialing'].includes(b.status) && (!b.period_end || new Date(b.period_end) > new Date())) return true;
+  if (b.status === 'canceled' && b.period_end && new Date(b.period_end) > new Date()) return true;
   return false;
 }
 function leadCapacity(additional=0) {

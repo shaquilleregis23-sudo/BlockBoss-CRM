@@ -6,6 +6,7 @@ const PUBLISHABLE_KEY=Deno.env.get('CRM_PUBLISHABLE_KEY')!
 const MAINTENANCE_SECRET=Deno.env.get('CRM_MAINTENANCE_SECRET')!
 const admin=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false}})
 const PLUTO='https://data.cityofnewyork.us/resource/64uk-42ks.json'
+async function runLifecycle(){try{const r=await fetch(`${SUPABASE_URL}/functions/v1/send-lifecycle`,{method:'POST',headers:{'content-type':'application/json','x-crm-maintenance-secret':MAINTENANCE_SECRET},body:'{}'});return await r.json()}catch(e){return {ok:false,error:String(e)}}}
 
 function title(v:string){return v.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}
 function ownerParts(raw:string){
@@ -49,6 +50,7 @@ Deno.serve(async req=>{
     for(const teamId of teams){const {data:run}=await admin.from('maintenance_runs').insert({team_id:teamId,job_type:action,status:'running'}).select('id').single();if(run?.id)runIds.push(run.id)
       try{const result=action==='backup'?await backupTeam(teamId):await refreshTeam(teamId);results.push({team_id:teamId,...result});if(run?.id)await admin.from('maintenance_runs').update({status:'success',finished_at:new Date().toISOString(),processed:result.processed,changed:result.changed,details:result}).eq('id',run.id)}
       catch(e){if(run?.id)await admin.from('maintenance_runs').update({status:'failed',finished_at:new Date().toISOString(),error:String(e?.message||e).slice(0,500)}).eq('id',run.id);throw e}}
-    return Response.json({ok:true,action,results})
+    const lifecycle=action==='backup'?await runLifecycle():null
+    return Response.json({ok:true,action,results,lifecycle})
   }catch(e){return Response.json({ok:false,error:String(e?.message||e)},{status:String(e?.message||e).includes('Unauthorized')?401:500})}
 })

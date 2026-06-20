@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v17-saas-activation';
+const CACHE = 'm2-hybrid-production-v18-production-hardening';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',

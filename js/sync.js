@@ -105,8 +105,12 @@ async function syncFromSupabase() {
 async function syncBillingFromSupabase() {
   if (!sb || !session()?.email) return;
   try {
+    if(session().team_id){
+      const {data:ent}=await sb.from('crm_entitlements').select('plan_key,status,agent_limit,lead_limit,period_end,stripe_customer_id,stripe_subscription_id,updated_at').eq('team_id',session().team_id).maybeSingle();
+      if(ent?.plan_key)saveBilling({plan_key:ent.plan_key,status:ent.status,period_end:ent.period_end?.slice(0,10)||'',stripe_customer_id:ent.stripe_customer_id||'',stripe_subscription_id:ent.stripe_subscription_id||'',agent_limit:ent.agent_limit,lead_limit:ent.lead_limit,entitlement_synced_at:ent.updated_at});
+    }
     const { data } = await sb.from('master_accounts').select('plan_key,plan_status,plan_expires_at,stripe_customer_id,stripe_subscription_id,email_verified,referral_code,referral_credits,logo_url,accent_color').eq('email', session().email.toLowerCase()).single();
-    if (!data?.plan_key) return;
+    if (!data?.plan_key) {renderBrand();renderStats();return;}
     saveBilling({
       plan_key:data.plan_key, status:data.plan_status||'active',
       period_end:data.plan_expires_at?.slice(0,10)||'',
