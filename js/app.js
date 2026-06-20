@@ -1,6 +1,19 @@
 // ── Event Listeners & Init ────────────────────────────────────────────────────
 document.addEventListener('click', parseAction, true);
 
+// Keep sheets and modals fitted to the visible iPhone viewport when Safari's
+// address bar or software keyboard changes the usable screen height.
+function syncVisibleViewport() {
+  const h = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
+  if (typeof map !== 'undefined') requestAnimationFrame(() => map.invalidateSize({ pan:false }));
+}
+syncVisibleViewport();
+window.addEventListener('resize', syncVisibleViewport, { passive:true });
+window.addEventListener('orientationchange', () => setTimeout(syncVisibleViewport, 150), { passive:true });
+window.visualViewport?.addEventListener('resize', syncVisibleViewport, { passive:true });
+window.visualViewport?.addEventListener('scroll', syncVisibleViewport, { passive:true });
+
 document.getElementById('filterToggle').onclick = e => { e.stopPropagation(); document.getElementById('filterBar').classList.toggle('open'); };
 document.getElementById('fieldToggle').onclick  = e => { e.stopPropagation(); document.getElementById('fieldMenu').classList.toggle('open'); };
 document.addEventListener('click', e => {

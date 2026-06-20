@@ -80,7 +80,14 @@ function agentName() { return session().name || settings().agent_name || 'Shaqui
 // ── Utility Helpers ───────────────────────────────────────────────────────────
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(window._t); window._t = setTimeout(() => t.classList.remove('show'), 2200); }
-function info(msg) { document.getElementById('infoTag').textContent = msg; }
+let infoHideTimer;
+function info(msg) {
+  const tag = document.getElementById('infoTag');
+  tag.textContent = msg;
+  tag.classList.remove('auto-hidden');
+  clearTimeout(infoHideTimer);
+  infoHideTimer = setTimeout(() => tag.classList.add('auto-hidden'), 6500);
+}
 function val(id) { return document.getElementById(id)?.value || ''; }
 function digits(v) { return String(v || '').replace(/\D/g, ''); }
 function normalizeAddress(v) {

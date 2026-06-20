@@ -4,6 +4,8 @@ html,body{height:100%;overflow:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
+button,.chip,.action-grid label{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+button:active,.chip:active,.action-grid label:active{transform:scale(.97)}
 .hidden{display:none!important}
 .app{height:100vh;height:100dvh;display:grid;grid-template-rows:auto 1fr auto;background:var(--bg)}
 .topbar{background:rgba(22,27,34,.98);border-bottom:1px solid var(--border);padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));display:flex;align-items:center;gap:9px;z-index:900}
@@ -73,3 +75,59 @@ details.clean{border:1px solid var(--border);background:var(--bg);border-radius:
 .plan-btn.cta-green{background:#238636;color:white}
 .billing-status-bar{display:flex;align-items:center;gap:8px;background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .billing-pill{font-size:10px;font-weight:1000;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:var(--green);color:white}
+
+/* iPhone field pass — safe areas, reachable controls, keyboard stability */
+:root{--app-height:100dvh;--safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+html,body{width:100%;max-width:100%;overscroll-behavior:none;touch-action:manipulation}
+body{position:fixed;inset:0;-webkit-text-size-adjust:100%}
+.app{width:100%;max-width:100%;min-width:0;height:var(--app-height)}
+.topbar,.main,.bottom-nav{width:100%;max-width:100%;min-width:0}
+.topbar{padding-left:max(10px,var(--safe-left));padding-right:max(10px,var(--safe-right));gap:7px}
+.logo{flex:0 0 auto}
+.top-actions{min-width:0;gap:5px}
+.pill-btn,.filter-toggle,.field-toggle,.next-best-pill,.nav-btn,.close-btn,.sheet-close,.save-btn,.action-grid button,.action-grid label,.chip,details.clean summary,.login-choice button,.plan-btn{min-height:44px}
+.pill-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px}
+.main,#map{min-width:0;max-width:100%;touch-action:none}
+.bottom-nav{padding-left:var(--safe-left);padding-right:var(--safe-right);padding-bottom:var(--safe-bottom)}
+.nav-btn{padding:7px 5px 6px}
+.field-dock{left:max(10px,var(--safe-left));right:max(10px,var(--safe-right));bottom:calc(66px + var(--safe-bottom))}
+.field-menu{width:min(430px,calc(100dvw - 20px - var(--safe-left) - var(--safe-right)));max-width:calc(100dvw - 20px);max-height:calc(var(--app-height) - 160px - var(--safe-bottom));overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.field-toggle,.next-best-pill{min-height:46px}
+.filter-toggle{left:max(10px,var(--safe-left));top:10px}
+.filter-bar{left:max(10px,var(--safe-left));right:max(10px,var(--safe-right));max-width:none;max-height:42dvh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.chip{display:inline-flex;align-items:center;padding:8px 12px}
+.info-tag{left:max(10px,var(--safe-left));right:max(54px,var(--safe-right));bottom:calc(120px + var(--safe-bottom));max-width:none;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.info-tag.auto-hidden{opacity:0;transform:translateY(6px)}
+.panel-view{padding-left:max(14px,var(--safe-left));padding-right:max(14px,var(--safe-right));padding-bottom:calc(90px + var(--safe-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet{max-height:calc(var(--app-height) - max(8px,env(safe-area-inset-top,0px)));overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-left:var(--safe-left);padding-right:var(--safe-right)}
+.sheet-close,.close-btn{min-width:44px;display:grid;place-items:center}
+.sheet-body{padding-bottom:calc(18px + var(--safe-bottom))}
+.form-row input,.form-row textarea,.form-row select{font-size:16px;min-height:44px}
+.modal{padding:max(8px,var(--safe-left)) max(8px,var(--safe-right)) var(--safe-bottom);overscroll-behavior:contain}
+.modal-card{max-height:calc(var(--app-height) - max(8px,env(safe-area-inset-top,0px)) - var(--safe-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.login-overlay{padding:max(14px,env(safe-area-inset-top,0px)) max(14px,var(--safe-right)) max(14px,var(--safe-bottom)) max(14px,var(--safe-left));overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.login-box{margin:auto}
+.toast{bottom:calc(82px + var(--safe-bottom));max-width:calc(100dvw - 28px);text-align:center}
+.progress{width:min(310px,calc(100dvw - 30px))}
+.leaflet-bottom.leaflet-right{bottom:calc(54px + var(--safe-bottom));right:max(2px,var(--safe-right))}
+.leaflet-control-zoom a{width:44px!important;height:44px!important;line-height:44px!important}
+
+@media(max-width:430px){
+  .topbar{min-height:56px}
+  .logo{width:32px;height:32px;border-radius:10px;font-size:13px}
+  .title b{font-size:13px}
+  .title span{display:none}
+  .pill-btn{font-size:11px;padding:7px 9px}
+  .sync-dot{margin-right:1px}
+  .field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .quick-disp{gap:8px}
+  .qd-btn{padding:18px 7px;min-height:96px}
+  #crisp-chatbox{display:none!important}
+}
+@media(max-width:350px){
+  .topbar{padding-left:7px;padding-right:7px;gap:5px}
+  .logo{width:30px;height:30px}
+  .title b{font-size:12px}
+  .pill-btn{padding:7px 8px;font-size:10px}
+  .field-menu-head span{display:none}
+}
