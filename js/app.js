@@ -80,7 +80,7 @@ setInterval(checkDueCallbacks,30000);
   if (restored) renderAll();
   await initSecureAuth();
   if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
-  if (session().team_id) { await syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue(); }
+  if (session().team_id) { await syncFromSupabase(); await syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue(); refreshActivationState(); }
   if(pushOpenLeadId){history.replaceState({},'',location.pathname);setTimeout(()=>{const l=state.leads.find(x=>x.id===pushOpenLeadId);if(l)goLead(l);else toast('Callback lead is not assigned to this login');},350);}
 })();
 
@@ -130,20 +130,16 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   }
 })();
 
-// ?billing_success=solo|team|agency  +  ?ref=CODE — Stripe redirect
+// Stripe redirects never grant access by themselves. The server-side account
+// record must confirm the subscription before the CRM treats it as active.
 (() => {
   const params = new URLSearchParams(location.search);
   const pk = params.get('billing_success');
   const _refParam = params.get('ref');
   if (_refParam) localStorage.setItem('m2_ref', _refParam.toUpperCase());
   if (pk && STRIPE_PLANS[pk]) {
-    saveBilling({ plan_key:pk, status:'active', period_end:new Date(Date.now()+30*86400000).toISOString().slice(0,10) });
     history.replaceState({}, '', location.pathname);
-    renderBrand(); renderStats();
-    setTimeout(() => {
-      toast('🎉 Subscription activated — ' + STRIPE_PLANS[pk].label + ' plan is live!');
-      if (!session()?.role) setTimeout(() => { openLogin(); toast('Log in with your email and PIN to get started'); }, 1400);
-    }, 600);
+    setTimeout(async()=>{await syncBillingFromSupabase();if(billingActive())toast('🎉 Subscription confirmed — '+billingPlan().label+' is live!');else toast('Payment received · sign in to confirm your plan');},600);
   }
 })();
 

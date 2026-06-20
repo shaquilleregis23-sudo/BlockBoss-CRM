@@ -153,9 +153,9 @@ function plutoToLead(p) {
 
 // ── PLUTO Loader ──────────────────────────────────────────────────────────────
 async function loadPlutoBounds(bounds, name = 'this area') {
-  const _bp = billingPlan();
-  if (_bp && _bp.leads < 999999 && state.leads.length >= _bp.leads) {
-    upgradeModal(`Load more territory requires a higher lead limit (you're at ${state.leads.length.toLocaleString()}/${_bp.leads.toLocaleString()})`, null);
+  const _capacity=leadCapacity(1);
+  if (!_capacity.allowed) {
+    upgradeModal(`Load more territory requires a higher lead limit (you're at ${_capacity.used.toLocaleString()}/${_capacity.limit.toLocaleString()})`, null);
     return;
   }
   loadCancelled = false;
@@ -188,6 +188,7 @@ async function loadPlutoBounds(bounds, name = 'this area') {
     if (!Array.isArray(data)) throw new Error('Bad response: ' + JSON.stringify(data).slice(0, 120));
     for (let i = 0; i < data.length; i++) {
       if (loadCancelled) break;
+      if(!leadCapacity(1).allowed){info(`Plan lead limit reached · ${state.leads.length.toLocaleString()} leads`);break;}
       const p = data[i];
       if (p.bbl && existingBBL.has(String(p.bbl))) { skipped++; continue; }
       const l = plutoToLead(p);

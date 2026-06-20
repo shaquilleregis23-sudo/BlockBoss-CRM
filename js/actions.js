@@ -225,6 +225,7 @@ function parseAction(e) {
     lastWorkedLeadId=l.id;localStorage.setItem('m2_last_worked_lead',l.id);
     rememberBlockWalk(l);
     addLog(l, a.dataset.disp, `${LABEL[a.dataset.disp]} saved`);
+    recordActivationMilestone('first_knock',{status:l.status});
     saveState(); upsertLead(l);
     if (window.posthog) posthog.capture('lead_status_changed', { status:l.status, addr:l.addr });
     // Appointment confirmation SMS/email
@@ -329,6 +330,16 @@ function parseAction(e) {
   else if (act === 'toggleSales') { document.body.classList.toggle('sales-demo-on'); renderStats(); }
   else if (act === 'salesOff') { document.body.classList.remove('sales-demo-on'); renderStats(); }
   else if (act === 'openOnboarding') openOnboarding();
+  else if (act === 'saveOnboardingCompany') saveOnboardingCompany();
+  else if (act === 'onboardingTerritory') onboardingTerritory(a);
+  else if (act === 'onboardingSkipTerritory') {closeModal();openOnboarding(3);}
+  else if (act === 'onboardingInvite') doOnboardingInvite();
+  else if (act === 'onboardingSkipInvite') {closeModal();openOnboarding(4);}
+  else if (act === 'onboardingStartKnocking') {closeModal();switchView('map');toast('Open a pin and record your first result');}
+  else if (act === 'onboardingFinish') {closeModal();openOnboarding(5);}
+  else if (act === 'activationCenter') openActivationCenter();
+  else if (act === 'supportCenter') openSupportCenter();
+  else if (act === 'submitSupport') submitSupportRequest();
   else if (act === 'openBilling') openBilling();
   else if (act === 'stripeCheckout') stripeCheckout(a.dataset.plan);
   else if (act === 'activateTrial') activateTrial();

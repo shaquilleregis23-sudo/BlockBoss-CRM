@@ -1,24 +1,80 @@
 // ── Onboarding Wizard ─────────────────────────────────────────────────────────
-function openOnboarding(step) {
-  step = step || 1; saveOb({ seen:true });
-  const sg = settings(), b = getBilling(), s = session();
-  const bar = '<div style="display:flex;gap:5px;margin-bottom:18px">' + [1,2,3,4].map(n => '<div style="flex:1;height:3px;border-radius:2px;background:' + (n<=step?'var(--green)':'rgba(255,255,255,.08)') + '"></div>').join('') + '</div>';
-
-  if (step === 1) {
-    modal('👋 Welcome to BlockBoss CRM', bar + `<p class="sub" style="margin-bottom:14px">Let's get your team set up in 60 seconds.</p><div class="form-row"><label>Company / Team Name</label><input id="obCo" value="${esc(sg.company||'')}" placeholder="Acme Solar LLC" autofocus></div><div class="form-row"><label>Primary Territory</label><input id="obTerr" value="${esc(sg.territory||'')}" placeholder="Queens / Long Island"></div><button class="save-btn green" onclick="(function(){var co=document.getElementById('obCo').value.trim(),te=document.getElementById('obTerr').value.trim();if(!co){toast('Enter your company name');return}saveSettings({company:co,territory:te||settings().territory});renderBrand();closeModal();setTimeout(function(){openOnboarding(2)},80)})()">Next →</button>`);
-
-  } else if (step === 2) {
-    const nq = NEIGHBORHOODS.queens.map((n, i) => `<button style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:12px" onclick="(function(){closeModal();var n=NEIGHBORHOODS.queens[${i}];map.fitBounds([[n[1][0],n[1][1]],[n[1][2],n[1][3]]]);loadPlutoBounds(n[1],n[0]);saveOb({territory_loaded:true});setTimeout(function(){openOnboarding(3)},500)})()">${n[0]}</button>`).join('');
-    const nb = NEIGHBORHOODS.brooklyn.map((n, i) => `<button style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;font-size:12px" onclick="(function(){closeModal();var n=NEIGHBORHOODS.brooklyn[${i}];map.fitBounds([[n[1][0],n[1][1]],[n[1][2],n[1][3]]]);loadPlutoBounds(n[1],n[0]);saveOb({territory_loaded:true});setTimeout(function(){openOnboarding(3)},500)})()">${n[0]}</button>`).join('');
-    modal('📍 Load Your First Territory', bar + `<p class="sub" style="margin-bottom:10px">Tap a neighborhood to load real homeowner names onto your map.</p><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px">QUEENS</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${nq}</div><div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px">BROOKLYN</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${nb}</div><button class="save-btn secondary" onclick="closeModal();openOnboarding(3)">Skip for now →</button>`);
-
-  } else if (step === 3) {
-    if (b.plan_key === 'solo') { openOnboarding(4); return; }
-    modal('👥 Invite Your First Rep', bar + `<p class="sub" style="margin-bottom:14px">Send a rep their login link. They tap, set a PIN, and they're in.</p><div class="form-row"><label>Rep Name</label><input id="obRN" placeholder="John Smith"></div><div class="form-row"><label>Rep Email</label><input id="obRE" type="email" placeholder="john@yourcompany.com"></div><div class="form-row"><label>Territory</label><input id="obRT" placeholder="${esc(settings().territory||'')}"></div><button class="save-btn green" onclick="(function(){var n=document.getElementById('obRN').value.trim(),e=document.getElementById('obRE').value.trim(),t=document.getElementById('obRT').value.trim(),s=session();if(!e){toast('Enter rep email');return}if(!s.team_id){toast('Log in first');return}fetch(SB_URL+'/functions/v1/invite-agent',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SB_KEY},body:JSON.stringify({team_id:s.team_id,master_email:s.email,master_name:s.name,agent_email:e,agent_name:n,territory:t})}).then(function(){closeModal();toast('✓ Invite sent!');openOnboarding(4)}).catch(function(){closeModal();openOnboarding(4)})})()">Send Invite →</button><button class="save-btn secondary" style="margin-top:8px" onclick="closeModal();openOnboarding(4)">Skip →</button>`);
-
-  } else {
-    modal('🎉 You\'re Ready to Knock!', bar + `<div style="text-align:center;padding:8px 0 16px"><div style="font-size:44px;margin-bottom:8px">🏘️</div><p style="font-weight:700;font-size:15px;margin-bottom:4px">BlockBoss CRM is live for your team</p><p class="sub" style="margin-bottom:16px">Here's how to hit the ground running:</p></div><div style="display:grid;gap:8px;margin-bottom:16px"><div style="background:rgba(63,185,80,.07);border:1px solid rgba(63,185,80,.2);border-radius:8px;padding:11px;font-size:13px"><b style="color:var(--green)">✊ Rep Mode</b> — Start a door session with GPS and big one-tap dispositions</div><div style="background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.2);border-radius:8px;padding:11px;font-size:13px"><b style="color:var(--blue)">🎯 Next Best Lead</b> — Jump to your highest-priority home instantly</div><div style="background:rgba(161,113,247,.07);border:1px solid rgba(161,113,247,.2);border-radius:8px;padding:11px;font-size:13px"><b style="color:var(--purple)">📋 Closer Board</b> — All set appointments live in Stats for your closer</div></div><button class="save-btn green" data-action="closeModal">Start Knocking →</button>`);
+function activationSnapshot(){
+  const ob=getOb(),p=billingPlan(),worked=state.leads.some(l=>l.status&&l.status!=='fresh');
+  const steps=[
+    {key:'secure_account',label:'Secure account connected',done:!!session().auth_v2,action:'openLogin'},
+    {key:'company_setup',label:'Company and territory configured',done:!!ob.company_setup,action:'openOnboarding'},
+    {key:'first_leads',label:'First homeowner leads loaded',done:state.leads.length>0,action:'neighborhoods'},
+    {key:'first_rep',label:p?.agents===1?'Solo workspace ready':'First rep invited securely',done:p?.agents===1||!!ob.rep_invited||(+ob.secure_agent_count>0),action:'openAgentSetup'},
+    {key:'first_knock',label:'First door result recorded',done:worked||!!ob.first_knock,action:'repMode'},
+    {key:'maintenance_ready',label:'Backups and owner refresh monitored',done:!!ob.maintenance_ready,action:'healthDashboard'}
+  ];
+  return {steps,done:steps.filter(x=>x.done).length,pct:Math.round(steps.filter(x=>x.done).length/steps.length*100)};
+}
+async function recordActivationMilestone(key,metadata={}){
+  const ob=getOb();if(ob[key])return;saveOb({[key]:new Date().toISOString()});
+  if(window.posthog)posthog.capture('activation_milestone',{milestone:key,...metadata});
+  const s=session();if(sb&&navigator.onLine&&s.auth_v2&&s.team_id&&s.user_id)try{await sb.from('crm_activation_events').upsert({team_id:s.team_id,user_id:s.user_id,milestone:key,metadata},{onConflict:'team_id,user_id,milestone'});}catch(e){console.warn('Activation event:',e);}
+}
+function syncDerivedActivation(){
+  const snap=activationSnapshot();for(const x of snap.steps)if(x.done)recordActivationMilestone(x.key,{lead_count:state.leads.length});return snap;
+}
+function activationCardHTML(){
+  if(!isMaster())return '';
+  const a=syncDerivedActivation();if(a.pct===100)return `<div class="card activation-card complete"><div class="activation-head"><div><h3>✅ Workspace Activated</h3><p class="sub">Your team is field-ready. Setup remains available anytime.</p></div><b>100%</b></div><button class="save-btn secondary" data-action="activationCenter">Review Setup</button></div>`;
+  return `<div class="card activation-card"><div class="activation-head"><div><h3>🚀 Finish Workspace Setup</h3><p class="sub">Get from signup to the first recorded knock.</p></div><b>${a.pct}%</b></div><div class="track"><div class="fill" style="width:${a.pct}%"></div></div>${a.steps.map(x=>`<button class="activation-step ${x.done?'done':''}" data-action="${x.done?'activationCenter':x.action}"><span>${x.done?'✓':'○'}</span><b>${esc(x.label)}</b></button>`).join('')}<button class="save-btn green" data-action="activationCenter">Open Activation Center</button></div>`;
+}
+async function refreshActivationState(){
+  const s=session();if(sb&&s.auth_v2&&s.team_id){
+    const [{count},{data:maintenance}]=await Promise.all([
+      sb.from('crm_team_members').select('*',{count:'exact',head:true}).eq('team_id',s.team_id).eq('role','agent'),
+      sb.from('maintenance_runs').select('job_type,status,started_at').eq('team_id',s.team_id).order('started_at',{ascending:false}).limit(8)
+    ]);
+    const healthy=['backup','owner_refresh'].every(t=>maintenance?.some(r=>r.job_type===t&&r.status==='success'));
+    saveOb({secure_agent_count:count||0,maintenance_ready:healthy||getOb().maintenance_ready});
   }
+  renderStats();return activationSnapshot();
+}
+async function openActivationCenter(){
+  if(!isMaster())return toast('Manager access required');
+  const a=await refreshActivationState();
+  modal('🚀 SaaS Activation Center',`<div class="activation-score"><b>${a.pct}%</b><span>${a.done} of ${a.steps.length} activation milestones complete</span></div>${a.steps.map(x=>`<button class="activation-row ${x.done?'done':''}" data-action="${x.done?'closeModal':x.action}"><span>${x.done?'✓':'→'}</span><div><b>${esc(x.label)}</b><small>${x.done?'Completed':'Tap to complete this step'}</small></div></button>`).join('')}<p class="sub" style="margin-top:12px">Activation target: first recorded knock within 10 minutes of signup.</p>`);
+}
+async function ensureAgentCapacity(){
+  const p=billingPlan();if(!billingActive()){upgradeModal('Inviting field reps requires an active plan','team');return false;}if(!p||p.agents>=999)return true;if(p.agents===1){upgradeModal('Solo is a one-user workspace. Upgrade to invite a field rep.','team');return false;}
+  const s=session();let count=+getOb().secure_agent_count||0;if(sb&&s.team_id){const r=await sb.from('crm_team_members').select('*',{count:'exact',head:true}).eq('team_id',s.team_id).eq('role','agent');count=r.count||0;saveOb({secure_agent_count:count});}
+  if(count>=p.agents){upgradeModal(`${p.label} includes ${p.agents} agent${p.agents===1?'':'s'}. Upgrade to invite another rep.`,p.agents<5?'team':'agency');return false;}return true;
+}
+async function doOnboardingInvite(){
+  if(!await ensureAgentCapacity())return;const name=val('obRN').trim(),email=val('obRE').trim().toLowerCase(),territory=val('obRT').trim();if(!email)return toast('Enter rep email');
+  const {data,error}=await sb.functions.invoke('secure-invite-agent',{body:{email,name,territory}});if(error||!data?.ok)return toast('Invite failed: '+(data?.error||error?.message||'Try again'));
+  saveOb({rep_invited:new Date().toISOString(),secure_agent_count:(+getOb().secure_agent_count||0)+1});recordActivationMilestone('first_rep',{via:'onboarding'});closeModal();toast('✓ Secure invite sent');openOnboarding(4);
+}
+function openOnboarding(step) {
+  step=step||1;saveOb({seen:true,activation_started_at:getOb().activation_started_at||new Date().toISOString()});const sg=settings(),b=getBilling();
+  const bar='<div class="onboard-progress">'+[1,2,3,4,5].map(n=>'<i class="'+(n<=step?'active':'')+'"></i>').join('')+'</div>';
+  if(step===1){
+    modal('👋 Welcome to BlockBoss CRM',bar+`<p class="sub">Set up a field-ready workspace in a few minutes.</p><div class="form-row"><label>Company / Team Name</label><input id="obCo" value="${esc(sg.company||'')}" placeholder="Acme Solar LLC"></div><div class="form-row"><label>Primary Territory</label><input id="obTerr" value="${esc(sg.territory||'')}" placeholder="Queens / Brooklyn"></div><button class="save-btn green" data-action="saveOnboardingCompany">Next →</button>`);
+  }else if(step===2){
+    const buttons=(boro)=>NEIGHBORHOODS[boro].map((n,i)=>`<button class="territory-choice" data-action="onboardingTerritory" data-boro="${boro}" data-i="${i}">${esc(n[0])}</button>`).join('');
+    modal('📍 Load Your First Territory',bar+`<p class="sub">Load real NYC homeowner records now, or import purchased leads later.</p><b class="section-label">QUEENS</b><div class="territory-grid">${buttons('queens')}</div><b class="section-label">BROOKLYN</b><div class="territory-grid">${buttons('brooklyn')}</div><button class="save-btn secondary" data-action="onboardingSkipTerritory">Skip for now →</button>`);
+  }else if(step===3){
+    if(b.plan_key==='solo'){openOnboarding(4);return;}
+    modal('👥 Invite Your First Rep',bar+`<p class="sub">They receive a protected Supabase invite and create their own password.</p><div class="form-row"><label>Rep Name</label><input id="obRN"></div><div class="form-row"><label>Rep Email</label><input id="obRE" type="email"></div><div class="form-row"><label>Territory</label><input id="obRT" value="${esc(settings().territory||'')}"></div><button class="save-btn green" data-action="onboardingInvite">Send Secure Invite →</button><button class="save-btn secondary" data-action="onboardingSkipInvite">Skip →</button>`);
+  }else if(step===4){
+    modal('✊ Record Your First Knock',bar+`<div class="onboard-demo"><span>1</span><b>Open any homeowner pin</b><span>2</span><b>Tap a large disposition</b><span>3</span><b>The result syncs automatically</b></div><p class="sub">Your activation checklist stays visible until the first real door result is saved.</p><button class="save-btn green" data-action="onboardingStartKnocking">Open Map & Start Knocking</button><button class="save-btn secondary" data-action="onboardingFinish">Finish Setup Without a Knock</button>`);
+  }else{
+    saveOb({wizard_completed_at:new Date().toISOString()});modal('🎉 Workspace Ready',bar+`<div class="ready-icon">🏘️</div><h3 style="text-align:center">Your CRM is ready for field use</h3><p class="sub" style="text-align:center">The Activation Center will keep track of anything you skipped.</p><button class="save-btn green" data-action="activationCenter">Review Activation Checklist</button><button class="save-btn secondary" data-action="closeModal">Go to Map</button>`);
+  }
+}
+function saveOnboardingCompany(){const company=val('obCo').trim(),territory=val('obTerr').trim();if(!company)return toast('Enter your company name');saveSettings({company,territory:territory||settings().territory});recordActivationMilestone('company_setup');closeModal();openOnboarding(2);}
+async function onboardingTerritory(btn){const n=NEIGHBORHOODS[btn.dataset.boro][+btn.dataset.i],before=state.leads.length;map.fitBounds([[n[1][0],n[1][1]],[n[1][2],n[1][3]]]);saveOb({territory_loaded:true});closeModal();await loadPlutoBounds(n[1],n[0]);if(state.leads.length>before)recordActivationMilestone('first_leads',{source:'pluto',count:state.leads.length-before});openOnboarding(3);}
+function openSupportCenter(){
+  const s=session();modal('🛟 BlockBoss Support',`<p class="sub">Send a question or production issue with device and sync context attached automatically.</p><div class="form-grid-2"><div class="form-row"><label>Category</label><select id="supportCategory"><option value="question">Question</option><option value="data">Homeowner data</option><option value="sync">Sync / login</option><option value="billing">Billing</option><option value="bug">Bug</option></select></div><div class="form-row"><label>Priority</label><select id="supportPriority"><option value="normal">Normal</option><option value="urgent">Urgent — field blocked</option></select></div></div><div class="form-row"><label>Subject</label><input id="supportSubject" placeholder="Short summary"></div><div class="form-row"><label>What happened?</label><textarea id="supportDescription" rows="5" placeholder="What were you doing, and what did you expect?"></textarea></div><button class="save-btn green" data-action="submitSupport">Send Support Request</button><p class="sub">Signed in as ${esc(s.email||agentName())}</p>`);}
+async function submitSupportRequest(){
+  const s=session(),subject=val('supportSubject').trim(),description=val('supportDescription').trim(),category=val('supportCategory'),priority=val('supportPriority');if(!subject||description.length<10)return toast('Add a subject and a little more detail');if(!sb||!s.auth_v2||!s.team_id)return toast('Secure login required to contact support');if(!navigator.onLine)return toast('Reconnect to send this support request');
+  const context={release:'v17',url:location.href,online:navigator.onLine,queued:offlineQueue?.length||0,lead_count:state.leads.length,user_agent:navigator.userAgent};const {data,error}=await sb.from('crm_support_requests').insert({team_id:s.team_id,user_id:s.user_id,reporter_email:s.email||'',category,priority,subject,description,context}).select('id').single();
+  if(error)return toast('Support request failed: '+error.message);closeModal();toast(`✓ Support request ${String(data.id).slice(0,8)} sent`);if(window.posthog)posthog.capture('support_request_created',{category});
 }
 
 // ── Billing Modals ────────────────────────────────────────────────────────────
@@ -72,6 +128,8 @@ async function establishSecureSession(authSession) {
   const user=authSession?.user; if(!user)return false;
   const membership=await membershipForUser(user); if(!membership)return false;
   saveSession({ auth_v2:true, user_id:user.id, role:membership.role||'agent', name:membership.display_name||user.user_metadata?.name||user.email, email:user.email, team_id:membership.team_id });
+  recordActivationMilestone('secure_account');
+  if(membership.role!=='agent'&&!getOb().seen)setTimeout(()=>openOnboarding(1),1000);
   if (sb.realtime && authSession.access_token) sb.realtime.setAuth(authSession.access_token);
   return true;
 }
@@ -239,6 +297,7 @@ async function doPinReset() {
 // ── Agent Management ──────────────────────────────────────────────────────────
 async function doInviteAgent() {
   const s = session(); if (!s.team_id) { toast('Log in as Master to invite agents'); return; }
+  if(!await ensureAgentCapacity())return;
   const name = val('invName').trim(), email = val('invEmail').trim().toLowerCase(), territory = val('invTerritory').trim();
   if (!email) { toast('Enter the agent email'); return; }
   const btn = document.querySelector('[data-action="doInviteAgent"]');
@@ -246,7 +305,7 @@ async function doInviteAgent() {
   try {
     const {data,error}=await sb.functions.invoke('secure-invite-agent',{body:{email,name,territory}});
     if(error||!data?.ok) { toast('Error: ' + (data?.error||error?.message||'Try again')); if (btn) { btn.disabled=false; btn.textContent='Send Secure Invite →'; } return; }
-    closeModal(); toast('✓ Invite sent to ' + email);
+    saveOb({rep_invited:new Date().toISOString(),secure_agent_count:(+getOb().secure_agent_count||0)+1});recordActivationMilestone('first_rep',{via:'agent_setup'});closeModal(); toast('✓ Invite sent to ' + email);
   } catch(err) { toast('Network error'); if (btn) { btn.disabled=false; btn.textContent='Send Invite Email →'; } }
 }
 async function showSecureAgentInvite(){

@@ -64,13 +64,17 @@ function getOb() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; 
 function saveOb(d) { try { localStorage.setItem(OB_KEY, JSON.stringify({ ...getOb(), ...d })); } catch(e) {} }
 
 // ── Billing Helpers ───────────────────────────────────────────────────────────
-function billingPlan() { const b = getBilling(); return STRIPE_PLANS[b.plan_key] || null; }
+function billingPlan() { const key=String(getBilling().plan_key||'').replace(/_annual$/,'');return STRIPE_PLANS[key] || null; }
 function billingActive() {
   const b = getBilling();
   if (!b.plan_key) return false;
   if (b.status === 'active') return true;
   if (b.status === 'trial' && b.trial_end && new Date(b.trial_end) > new Date()) return true;
   return false;
+}
+function leadCapacity(additional=0) {
+  const p=billingPlan(),limit=p?.leads||Infinity,used=state.leads.length;
+  return {allowed:used+additional<=limit,used,limit,remaining:Math.max(0,limit-used)};
 }
 
 // ── Session Helpers ───────────────────────────────────────────────────────────

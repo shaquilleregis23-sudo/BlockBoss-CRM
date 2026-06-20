@@ -85,6 +85,7 @@ function openCreate(latlng, parcel={}) {
   modal('➕ Add Lead', `<div class="form-grid-2"><div class="form-row"><label>First</label><input id="newFirst"></div><div class="form-row"><label>Last</label><input id="newLast"></div></div><div class="form-row"><label>Address</label><input id="newAddr"></div><div class="form-grid-2"><div class="form-row"><label>Borough / City</label><input id="newBoro" value="${settings().territory||''}"></div><div class="form-row"><label>Zip</label><input id="newZip"></div></div><div class="form-grid-2"><div class="form-row"><label>Phone</label><input id="newPhone"></div><div class="form-row"><label>Monthly Bill</label><input type="number" id="newBill"></div></div><div class="form-row"><label>NYC BBL</label><input id="newBBL" inputmode="numeric" value="${esc(parcel.bbl||'')}" placeholder="Filled automatically when adding from a parcel"></div><div class="form-row"><label>Notes</label><textarea id="newNotes"></textarea></div><button class="save-btn green" data-action="createLead" data-lat="${c.lat}" data-lng="${c.lng}">Create Lead</button>`);
 }
 async function createLead(btn) {
+  if(!leadCapacity(1).allowed){upgradeModal('Your plan lead limit has been reached');return;}
   btn.disabled=true;btn.textContent='Saving lead…';
   const sess=session();
   const lead = {
@@ -101,6 +102,7 @@ async function createLead(btn) {
   if(duplicate){btn.disabled=false;btn.textContent='Create Lead';closeModal();goLead(duplicate);return toast('That property already exists');}
   if(lead.addr&&navigator.onLine){const g=await geocodePurchasedLead([lead.addr,lead.boro,lead.zip,'NY'].filter(Boolean).join(', '));if(g){lead.lat=g.lat;lead.lng=g.lng;}}
   state.leads.push(lead); saveState(); await upsertLead(lead);
+  recordActivationMilestone('first_leads',{source:'manual'});
   closeModal(); renderAll(); map.setView([lead.lat, lead.lng], 17); openLead(lead.id);
   toast(lead._sync_status==='synced'?'✓ Lead saved to team database':sess.team_id?'✓ Lead saved locally · cloud sync queued':'✓ Lead saved on this phone');
 }
@@ -157,6 +159,7 @@ async function importCSV(file) {
   if (!file) return;
   const text=await file.text(), rows=parseCSV(text);
   if(rows.length<2){toast('CSV empty');return;}
+  const capacity=leadCapacity();if(capacity.remaining<=0){upgradeModal('Your plan lead limit has been reached');return;}
   const h=rows[0].map(x=>x.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')), data=rows.slice(1);
   if(!confirm(`Import ${data.length} purchased leads? Missing coordinates will be geocoded from the address.`))return;
   const col={
@@ -172,6 +175,7 @@ async function importCSV(file) {
   let added=0,dupes=0,failed=0; const newLeads=[];
   for(let i=0;i<data.length;i++){
     if(loadCancelled)break; const row=data[i], addr=get(row,'addr'),zip=get(row,'zip');
+    if(!leadCapacity(1).allowed){info(`Import stopped at your ${leadCapacity().limit.toLocaleString()} lead plan limit`);break;}
     if(!addr){failed++;continue;}
     let lat=parseFloat(get(row,'lat')),lng=parseFloat(get(row,'lng'));
     if(!Number.isFinite(lat)||!Number.isFinite(lng)){const g=await geocodePurchasedLead([addr,get(row,'city'),zip,'NY'].filter(Boolean).join(', ')); if(g){lat=g.lat;lng=g.lng;} else {failed++;continue;} await new Promise(r=>setTimeout(r,180));}
@@ -180,7 +184,7 @@ async function importCSV(file) {
     const key=leadIdentityKey(lead);if(existing.has(key)){dupes++;continue;}
     state.leads.push(lead);newLeads.push(lead);existing.add(key);added++; fill.style.width=Math.round((i+1)/data.length*100)+'%'; sub.textContent=`${added} added · ${dupes} duplicates · ${failed} skipped`;
   }
-  saveState();renderAll();upsertBatch(newLeads);prog.classList.remove('open');toast(`✓ Imported ${added} purchased leads`);
+  saveState();renderAll();upsertBatch(newLeads);if(added)recordActivationMilestone('first_leads',{source:'csv',count:added});prog.classList.remove('open');toast(`✓ Imported ${added} purchased leads`);
 }
 function parseCSV(text) {
   const rows = []; let row = [], cur = '', q = false;
