@@ -26,6 +26,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
   <div class="title"><b id="brandTitle">BlockBoss CRM</b><span id="sessionLine">Original stack restored · Solar + HVAC + Field Team</span></div>
   <div class="top-actions">
     <div id="syncDot" class="sync-dot" title="Sync status"></div>
+    <button class="pill-btn" id="sunToggle" title="Enable Sun Mode">☀️</button>
     <button class="pill-btn hide-sm" id="openLaunch">🚀 Launch</button>
     <button class="pill-btn blue" id="openLogin">Login</button>
     <button class="pill-btn gold" id="exportTop">Backup</button>
@@ -90,5 +91,10 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 <script src="js/sms.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/app.js"></script>
+<!-- Additive feature modules — safe to append, no existing code modified -->
+<script src="js/sunmode.js"></script>
+<script src="js/fatdisp.js"></script>
+<script src="js/hitfeed.js"></script>
+<script src="js/voice.js"></script>
 </body>
 </html>
