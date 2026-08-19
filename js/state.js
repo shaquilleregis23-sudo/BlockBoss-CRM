@@ -4,7 +4,16 @@ function loadState() {
   catch(e) { return { leads:[], filter:'all' }; }
 }
 function saveState() {
-  try { localStorage.setItem(STORE, JSON.stringify(state)); }
+  if (typeof scheduleLeadPersistence === 'function') scheduleLeadPersistence(state.leads);
+  try {
+    const json = JSON.stringify(state);
+    // IndexedDB is the durable large-territory store. Keep localStorage as the
+    // fast bootstrap only while it remains comfortably below Safari's quota.
+    if (json.length > 3200000) {
+      const bootstrap = { ...state, leads:state.leads.filter(l => l.source==='manual' || l.source==='imported' || (l.status && l.status!=='fresh')).slice(-1200), idb_backed:true };
+      localStorage.setItem(STORE, JSON.stringify(bootstrap));
+    } else localStorage.setItem(STORE, json);
+  }
   catch(e) {
     // localStorage full — trim PLUTO-fresh leads to save space
     const slim = { ...state, leads: state.leads.filter(l => l.source==='manual' || l.source==='imported' || (l.status && l.status!=='fresh')) };
@@ -15,6 +24,7 @@ function saveState() {
 
 let state = loadState();
 let markers = {}, draftMarker = null, loadCancelled = false, currentLeadId = null, satellite = false;
+let lastWorkedLeadId = localStorage.getItem('m2_last_worked_lead') || '';
 
 // ── localStorage Helpers ──────────────────────────────────────────────────────
 function settings() {
@@ -54,13 +64,19 @@ function getOb() { try { return JSON.parse(localStorage.getItem(OB_KEY)) || {}; 
 function saveOb(d) { try { localStorage.setItem(OB_KEY, JSON.stringify({ ...getOb(), ...d })); } catch(e) {} }
 
 // ── Billing Helpers ───────────────────────────────────────────────────────────
-function billingPlan() { const b = getBilling(); return STRIPE_PLANS[b.plan_key] || null; }
+function billingPlan() { const key=String(getBilling().plan_key||'').replace(/_annual$/,'');return STRIPE_PLANS[key] || null; }
 function billingActive() {
   const b = getBilling();
   if (!b.plan_key) return false;
+  if (b.period_end && new Date(b.period_end).getTime()+86400000<Date.now()) return false;
   if (b.status === 'active') return true;
-  if (b.status === 'trial' && b.trial_end && new Date(b.trial_end) > new Date()) return true;
+  if (['trial','trialing'].includes(b.status) && (!b.period_end || new Date(b.period_end) > new Date())) return true;
+  if (b.status === 'canceled' && b.period_end && new Date(b.period_end) > new Date()) return true;
   return false;
+}
+function leadCapacity(additional=0) {
+  const p=billingPlan(),limit=p?.leads||Infinity,used=state.leads.length;
+  return {allowed:used+additional<=limit,used,limit,remaining:Math.max(0,limit-used)};
 }
 
 // ── Session Helpers ───────────────────────────────────────────────────────────
@@ -71,9 +87,29 @@ function agentName() { return session().name || settings().agent_name || 'Shaqui
 // ── Utility Helpers ───────────────────────────────────────────────────────────
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(window._t); window._t = setTimeout(() => t.classList.remove('show'), 2200); }
-function info(msg) { document.getElementById('infoTag').textContent = msg; }
+let infoHideTimer;
+function info(msg) {
+  const tag = document.getElementById('infoTag');
+  tag.textContent = msg;
+  tag.classList.remove('auto-hidden');
+  clearTimeout(infoHideTimer);
+  infoHideTimer = setTimeout(() => tag.classList.add('auto-hidden'), 6500);
+}
 function val(id) { return document.getElementById(id)?.value || ''; }
 function digits(v) { return String(v || '').replace(/\D/g, ''); }
+function normalizeAddress(v) {
+  return String(v || '').toUpperCase().trim()
+    .replace(/,.*$/,'')
+    .replace(/\b(QUEENS|BROOKLYN|BRONX|MANHATTAN|STATEN ISLAND|NEW YORK)\b\s*,?\s*NY\s*\d{5}(?:-\d{4})?$/,'')
+    .replace(/\b(STREET|ST)\b/g,'ST').replace(/\b(AVENUE|AVE)\b/g,'AVE')
+    .replace(/\b(BOULEVARD|BLVD)\b/g,'BLVD').replace(/\b(ROAD|RD)\b/g,'RD')
+    .replace(/\b(PLACE|PL)\b/g,'PL').replace(/\b(COURT|CT)\b/g,'CT')
+    .replace(/[^A-Z0-9]/g,'');
+}
+function leadIdentityKey(l) {
+  if (l?.bbl) return `bbl:${String(l.bbl).replace(/\D/g,'')}`;
+  return `addr:${normalizeAddress(l?.addr)}:${String(l?.zip||'').replace(/\D/g,'').slice(0,5)}`;
+}
 function localDT(v) {
   if (!v) return '';
   const d = new Date(v);

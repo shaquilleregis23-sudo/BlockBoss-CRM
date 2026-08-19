@@ -1,106 +1,48 @@
-// Feature 2: Aggressive Service Worker — v5
-// Shell: stale-while-revalidate. Tiles: cache-first + background update.
-const CACHE      = 'm2crm-v5';
-const TILE_CACHE = 'm2crm-tiles-v1';
-
-const SHELL = [
-  './index.html',
-  './styles.css',
-  './js/config.js',
-  './js/state.js',
-  './js/leads.js',
-  './js/sync.js',
-  './js/map.js',
-  './js/render.js',
-  './js/ui.js',
-  './js/auth.js',
-  './js/sms.js',
-  './js/actions.js',
-  './js/app.js',
-  './js/sunmode.js',
-  './js/fatdisp.js',
-  './js/hitfeed.js',
-  './js/voice.js',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js',
+const CACHE = 'm2-hybrid-production-v18-production-hardening';
+const TILE_CACHE = 'm2-map-tiles-v1';
+const CORE = [
+  './','./index.html','./styles.css','./manifest.json',
+  './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
+  './vendor/leaflet/images/marker-icon.png','./vendor/leaflet/images/marker-icon-2x.png','./vendor/leaflet/images/marker-shadow.png',
+  './vendor/supabase/supabase.js',
+  './js/config.js','./js/state.js','./js/storage.js','./js/leads.js','./js/sync.js',
+  './js/map.js','./js/render.js','./js/ui.js','./js/auth.js',
+  './js/sms.js','./js/actions.js','./js/app.js',
+  './js/sunmode.js','./js/fatdisp.js','./js/hitfeed.js','./js/voice.js',
+  './vendor/leaflet-markercluster/leaflet.markercluster.js','./vendor/leaflet-markercluster/MarkerCluster.css','./vendor/leaflet-markercluster/MarkerCluster.Default.css'
 ];
-
-const TILE_HOSTS = [
-  'tile.openstreetmap.org',
-  'cartocdn.com',
-  'basemaps.cartocdn.com',
-  'arcgisonline.com',
-  'services.arcgisonline.com',
-  'tile.opentopomap.org',
-  'mt0.google.com',
-  'mt1.google.com',
-];
-
-self.addEventListener('install', function (e) {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then(function (c) { return c.addAll(SHELL); })
-      .then(function () { return self.skipWaiting(); })
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => Promise.all(CORE.map(async url=>{
+    const response=await fetch(new Request(url,{cache:'reload'}));
+    if(!response.ok)throw new Error('Precache failed: '+url);
+    await cache.put(url,response);
+  }))).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== TILE_CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+async function trimCache(name,max){const cache=await caches.open(name),keys=await cache.keys();if(keys.length>max)await Promise.all(keys.slice(0,keys.length-max).map(k=>cache.delete(k)));}
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).then(res=>{if(res.ok)caches.open(CACHE).then(c=>c.put('./index.html',res.clone()));return res;}).catch(()=>caches.match('./index.html')));return;}
+  const isTile=/cartocdn\.com$/.test(url.hostname)||/arcgisonline\.com$/.test(url.hostname)||/openstreetmap\.org$/.test(url.hostname)||/opentopomap\.org$/.test(url.hostname)||/google\.com$/.test(url.hostname)&&url.pathname.startsWith('/maps/vt');
+  if(isTile){event.respondWith(caches.open(TILE_CACHE).then(async cache=>{const hit=await cache.match(event.request);if(hit)return hit;try{const res=await fetch(event.request);if(res.ok||res.type==='opaque'){cache.put(event.request,res.clone());trimCache(TILE_CACHE,2200);}return res;}catch(e){return new Response('',{status:503,statusText:'Offline tile unavailable'});}}));return;}
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    caches.match(event.request,{ignoreSearch:true}).then(cached => {
+      const network = fetch(event.request).then(response => {
+        if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+        return response;
+      });
+      return cached || network.catch(() => new Response('',{status:503,statusText:'Offline asset unavailable'}));
+    })
   );
 });
-
-self.addEventListener('activate', function (e) {
-  e.waitUntil(
-    caches.keys().then(function (keys) {
-      return Promise.all(
-        keys
-          .filter(function (k) { return k !== CACHE && k !== TILE_CACHE; })
-          .map(function (k) { return caches.delete(k); })
-      );
-    }).then(function () { return self.clients.claim(); })
-  );
+self.addEventListener('push',event=>{
+  let data={};try{data=event.data?.json()||{};}catch(e){data={title:'BlockBoss CRM',body:event.data?.text()||'Follow-up due'};}
+  event.waitUntil(self.registration.showNotification(data.title||'BlockBoss CRM',{body:data.body||'Follow-up due',tag:data.lead_id?'callback-'+data.lead_id:'blockboss',data:{url:data.url||'./',lead_id:data.lead_id||''},requireInteraction:true}));
 });
-
-self.addEventListener('fetch', function (e) {
-  var url;
-  try { url = new URL(e.request.url); } catch (_) { return; }
-
-  // Never intercept Supabase API calls — always fresh
-  if (url.hostname.includes('supabase.co')) return;
-
-  // Map tiles — cache-first, update in background (zero-latency offline)
-  var isTile = TILE_HOSTS.some(function (h) { return url.hostname.includes(h); });
-  if (isTile) {
-    e.respondWith(
-      caches.open(TILE_CACHE).then(function (tc) {
-        return tc.match(e.request).then(function (cached) {
-          var networkFetch = fetch(e.request).then(function (res) {
-            if (res.ok) tc.put(e.request, res.clone());
-            return res;
-          });
-          // Return cached immediately; fetch updates the tile quietly
-          return cached || networkFetch;
-        });
-      })
-    );
-    return;
-  }
-
-  // Own origin (shell files) — stale-while-revalidate
-  if (url.origin === self.location.origin) {
-    e.respondWith(
-      caches.open(CACHE).then(function (c) {
-        return c.match(e.request).then(function (cached) {
-          var networkFetch = fetch(e.request).then(function (res) {
-            if (res.ok) c.put(e.request, res.clone());
-            return res;
-          }).catch(function () { return null; });
-          // Serve cache instantly; update happens in the background
-          return cached || networkFetch;
-        });
-      })
-    );
-    return;
-  }
-
-  // Everything else (CDN, analytics, chat) — network with cache fallback
-  e.respondWith(
-    fetch(e.request).catch(function () { return caches.match(e.request); })
-  );
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();const url=event.notification.data?.url||'./';event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{for(const c of list)if('focus'in c){c.navigate(url);return c.focus();}return clients.openWindow(url);}));
 });

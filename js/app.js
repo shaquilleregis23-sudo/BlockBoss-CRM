@@ -1,7 +1,30 @@
 // ── Event Listeners & Init ────────────────────────────────────────────────────
+const pushOpenLeadId=new URLSearchParams(location.search).get('open_lead');
 document.addEventListener('click', parseAction, true);
+window.addEventListener('error',e=>logHealth('error','javascript',e.message||'JavaScript error',{file:e.filename,line:e.lineno,column:e.colno}));
+window.addEventListener('unhandledrejection',e=>logHealth('error','promise',e.reason?.message||String(e.reason||'Unhandled promise rejection')));
+
+// Keep sheets and modals fitted to the visible iPhone viewport when Safari's
+// address bar or software keyboard changes the usable screen height.
+function syncVisibleViewport() {
+  const h = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
+  if (typeof map !== 'undefined') requestAnimationFrame(() => map.invalidateSize({ pan:false }));
+}
+syncVisibleViewport();
+window.addEventListener('resize', syncVisibleViewport, { passive:true });
+window.addEventListener('orientationchange', () => setTimeout(syncVisibleViewport, 150), { passive:true });
+window.visualViewport?.addEventListener('resize', syncVisibleViewport, { passive:true });
+window.visualViewport?.addEventListener('scroll', syncVisibleViewport, { passive:true });
+
+// One-hand gesture: pull the lead sheet down from its header to close it.
+let sheetTouchY=0,sheetTouchX=0;
+const leadSheet=document.getElementById('sheet');
+leadSheet.addEventListener('touchstart',e=>{const t=e.touches[0];sheetTouchY=t.clientY;sheetTouchX=t.clientX;},{passive:true});
+leadSheet.addEventListener('touchend',e=>{const t=e.changedTouches[0],dy=t.clientY-sheetTouchY,dx=Math.abs(t.clientX-sheetTouchX);if(dy>85&&dx<70&&(e.target.closest('.sheet-header,.sheet-handle')||leadSheet.scrollTop<8)){navigator.vibrate?.(12);closeSheet();}},{passive:true});
 
 document.getElementById('filterToggle').onclick = e => { e.stopPropagation(); document.getElementById('filterBar').classList.toggle('open'); };
+document.getElementById('openLeadSearch').onclick = openLeadSearch;
 document.getElementById('fieldToggle').onclick  = e => { e.stopPropagation(); document.getElementById('fieldMenu').classList.toggle('open'); };
 document.addEventListener('click', e => {
   if (!e.target.closest('#fieldMenu,#fieldToggle')) document.getElementById('fieldMenu').classList.remove('open');
@@ -17,11 +40,17 @@ document.getElementById('openLogin').onclick    = openLogin;
 document.getElementById('openLaunch').onclick   = launch;
 document.getElementById('exportTop').onclick    = exportBackup;
 document.getElementById('cancelLoad').onclick   = () => loadCancelled = true;
+const retrySyncBtn=document.getElementById('retrySync');
+if(retrySyncBtn)retrySyncBtn.onclick=()=>{if(!navigator.onLine)return toast('Still offline');flushQueue();};
+window.addEventListener('offline',()=>{updateOfflineUI();toast('Offline mode — changes stay safe on this phone');});
+window.addEventListener('online',()=>{updateOfflineUI();toast('Back online — syncing changes');flushQueue();});
 
 document.addEventListener('change', e => {
   if (e.target.id === 'backupFile') importBackup(e.target.files[0]);
   if (e.target.id === 'csvFile')    importCSV(e.target.files[0]);
 });
+let leadSearchTimer;
+document.addEventListener('input',e=>{if(e.target.id!=='leadSearchInput')return;clearTimeout(leadSearchTimer);leadSearchTimer=setTimeout(()=>runLeadSearch(e.target.value),100);});
 
 // ── Map Interactions ──────────────────────────────────────────────────────────
 map.on('click', e => {
@@ -35,12 +64,25 @@ window._openCreateFromDraft = () => openCreate(window._draftLatLng);
 
 function updateLabelViz() { document.getElementById('map').classList.toggle('show-prop-labels', map.getZoom() >= 17); }
 map.on('zoomend', updateLabelViz);
+let _viewportRenderTimer=null;
+let _parcelRenderTimer=null;
+map.on('moveend',()=>{clearTimeout(_viewportRenderTimer);_viewportRenderTimer=setTimeout(renderMarkers,220);clearTimeout(_parcelRenderTimer);_parcelRenderTimer=setTimeout(loadParcelBoundaries,360);});
 updateLabelViz();
+loadParcelBoundaries();
 
 // ── Initial Render & Sync ─────────────────────────────────────────────────────
 renderAll();
-if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
-if (session().team_id) { syncFromSupabase(); syncBillingFromSupabase(); initRealtime(); subscribeLocations(); }
+updateOfflineUI();
+scheduleCallbackNotifs();
+setInterval(checkDueCallbacks,30000);
+(async()=>{
+  const restored = typeof hydrateLeadsFromIndexedDB === 'function' ? await hydrateLeadsFromIndexedDB() : 0;
+  if (restored) renderAll();
+  await initSecureAuth();
+  if (!state.leads.length) info('Tap Field Tools → Neighborhoods or Load Area to load NYC owner-name sun pins.');
+  if (session().team_id) { await syncFromSupabase(); await syncBillingFromSupabase(); initRealtime(); subscribeLocations(); flushQueue(); refreshActivationState(); }
+  if(pushOpenLeadId){history.replaceState({},'',location.pathname);setTimeout(()=>{const l=state.leads.find(x=>x.id===pushOpenLeadId);if(l)goLead(l);else toast('Callback lead is not assigned to this login');},350);}
+})();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
@@ -60,6 +102,11 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 (() => {
   const it = new URLSearchParams(location.search).get('invite_token');
   if (it) { history.replaceState({}, '', location.pathname); setTimeout(() => showAcceptInvite(it), 500); }
+})();
+
+// Supabase secure agent invite redirect.
+(() => {
+  if(new URLSearchParams(location.search).get('agent_invite'))setTimeout(showSecureAgentInvite,900);
 })();
 
 // ?plan=solo|team|agency — pricing CTA
@@ -83,28 +130,16 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   }
 })();
 
-// ?billing_success=solo|team|agency  +  ?ref=CODE — Stripe redirect
+// Stripe redirects never grant access by themselves. The server-side account
+// record must confirm the subscription before the CRM treats it as active.
 (() => {
   const params = new URLSearchParams(location.search);
   const pk = params.get('billing_success');
   const _refParam = params.get('ref');
   if (_refParam) localStorage.setItem('m2_ref', _refParam.toUpperCase());
   if (pk && STRIPE_PLANS[pk]) {
-    saveBilling({ plan_key:pk, status:'active', period_end:new Date(Date.now()+30*86400000).toISOString().slice(0,10) });
     history.replaceState({}, '', location.pathname);
-    renderBrand(); renderStats();
-    setTimeout(() => {
-      toast('🎉 Subscription activated — ' + STRIPE_PLANS[pk].label + ' plan is live!');
-      if (!session()?.role) setTimeout(() => { openLogin(); toast('Log in with your email and PIN to get started'); }, 1400);
-    }, 600);
-  }
-})();
-
-// ?demo=1 — auto-load rich demo (shareable link for prospects)
-(() => {
-  if (new URLSearchParams(location.search).get('demo') === '1') {
-    history.replaceState({}, '', location.pathname);
-    setTimeout(() => demoMode(), 200);
+    setTimeout(async()=>{await syncBillingFromSupabase();if(billingActive())toast('🎉 Subscription confirmed — '+billingPlan().label+' is live!');else toast('Payment received · sign in to confirm your plan');},600);
   }
 })();
 

@@ -1,7 +1,24 @@
 // ── Sync Status ───────────────────────────────────────────────────────────────
+async function logHealth(level,category,message,context={}){
+  const s=session();if(!sb||!navigator.onLine||!s.auth_v2||!s.user_id||!s.team_id)return;const key=`${level}:${category}:${String(message).slice(0,80)}`,now=Date.now();window._healthThrottle=window._healthThrottle||{};if(now-(window._healthThrottle[key]||0)<300000)return;window._healthThrottle[key]=now;
+  try{await sb.from('crm_health_events').insert({team_id:s.team_id,user_id:s.user_id,level,category,message:String(message).slice(0,500),context:{...context,user_agent:navigator.userAgent,online:navigator.onLine,queued:typeof offlineQueue!=='undefined'?offlineQueue.length:0}});}catch(e){}
+}
 function setSyncDot(s) {
   const d = document.getElementById('syncDot');
-  if (d) d.style.background = s==='ok' ? 'var(--green)' : s==='err' ? 'var(--red)' : 'var(--yellow)';
+  if (d) {
+    d.style.background = s==='ok' ? 'var(--green)' : s==='err' ? 'var(--red)' : 'var(--yellow)';
+    d.title = s==='ok' ? `Cloud synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : s==='err' ? 'Cloud sync needs attention' : 'Cloud sync in progress';
+  }
+  updateOfflineUI();
+}
+
+function updateOfflineUI() {
+  const bar=document.getElementById('offlineBar'),txt=document.getElementById('offlineText'),btn=document.getElementById('retrySync');
+  if(!bar||!txt)return;
+  const pending=offlineQueue?.length||0,offline=!navigator.onLine;
+  bar.classList.toggle('open',offline||pending>0);bar.classList.toggle('online',!offline&&pending>0);
+  txt.textContent=offline?(pending?`Offline · ${pending} change${pending===1?'':'s'} saved`:'Offline field mode · saves stay on this phone'):`Online · syncing ${pending} change${pending===1?'':'s'}`;
+  if(btn){btn.style.display=offline?'none':'';btn.textContent='Sync now';}
 }
 
 // ── Data Transform ────────────────────────────────────────────────────────────
@@ -38,6 +55,30 @@ function remoteToLocal(row) {
     bbl:row.bbl||raw.bbl||'', updated_at:row.updated_at||raw.updated_at
   };
 }
+function syncTime(l) { const t=new Date(l?.updated_at||0).getTime(); return Number.isFinite(t)?t:0; }
+function markLeadSync(l,status,error='') {
+  if(!l)return; l._sync_status=status; l._sync_error=error ? String(error).slice(0,180) : ''; l._sync_checked_at=new Date().toISOString();
+}
+function syncBadgeHTML(l) {
+  const s=l?._sync_status||(!session().team_id?'local':'pending');
+  const map={synced:['✓ Cloud','hot'],syncing:['↻ Syncing','blue'],queued:['☁ Queued','gold'],error:['! Sync','red'],pending:['• Pending','gold'],local:['Local','']};
+  const [label,cls]=map[s]||map.pending;
+  return `<span class="badge ${cls}" title="${esc(l?._sync_error||'')}">${label}</span>`;
+}
+function newerLead(a,b) {
+  if(!a)return b; if(!b)return a;
+  if(syncTime(a)===syncTime(b)) return b._sync_status==='synced'?b:a;
+  return syncTime(a)>syncTime(b)?a:b;
+}
+function dedupeLeadArray(rows) {
+  const byId=new Map();
+  for(const l of rows||[]){
+    if(!l?.id)continue; const prior=byId.get(l.id); byId.set(l.id,newerLead(prior,l));
+  }
+  // Preserve property duplicates for the manager-reviewed merge workflow.
+  // Automatic identity merging can silently discard purchased/manual details.
+  return [...byId.values()];
+}
 
 // ── Full Sync (pull from Supabase) ────────────────────────────────────────────
 async function syncFromSupabase() {
@@ -46,24 +87,30 @@ async function syncFromSupabase() {
   if (!tid) return;
   setSyncDot('busy');
   try {
-    const { data, error } = await sb.from('leads').select('*').eq('team_id', tid).order('updated_at', { ascending:false }).limit(10000);
-    if (error) throw error;
-    if (data?.length) {
-      const rm = {};
-      data.forEach(r => { rm[r.local_id] = remoteToLocal(r); });
-      const localOnly = state.leads.filter(l => !rm[l.id] && !l.team_id);
-      state.leads = [...Object.values(rm), ...localOnly];
-      saveState(); renderAll();
+    const data=[]; const pageSize=1000;
+    for(let from=0;from<100000;from+=pageSize){
+      const { data:page,error }=await sb.from('leads').select('*').eq('team_id',tid).order('updated_at',{ascending:false}).range(from,from+pageSize-1);
+      if(error)throw error; data.push(...(page||[]));
+      if(!page||page.length<pageSize)break;
+    }
+    if (data) {
+      const merged=new Map((state.leads||[]).map(l=>[l.id,l]));
+      data.forEach(r=>{const remote=remoteToLocal(r),local=merged.get(remote.id);markLeadSync(remote,'synced');const winner=newerLead(local,remote);merged.set(remote.id,winner);if(winner===local&&syncTime(local)>syncTime(remote))queueLead(local,'Local edit is newer than cloud');});
+      state.leads=dedupeLeadArray([...merged.values()]); saveState(); renderAll();
     }
     setSyncDot('ok');
-  } catch(e) { setSyncDot('err'); console.warn('Sync:', e); }
+  } catch(e) { setSyncDot('err'); console.warn('Sync:', e); logHealth('error','sync_pull',e.message||String(e)); }
 }
 
 async function syncBillingFromSupabase() {
   if (!sb || !session()?.email) return;
   try {
+    if(session().team_id){
+      const {data:ent}=await sb.from('crm_entitlements').select('plan_key,status,agent_limit,lead_limit,period_end,stripe_customer_id,stripe_subscription_id,updated_at').eq('team_id',session().team_id).maybeSingle();
+      if(ent?.plan_key)saveBilling({plan_key:ent.plan_key,status:ent.status,period_end:ent.period_end?.slice(0,10)||'',stripe_customer_id:ent.stripe_customer_id||'',stripe_subscription_id:ent.stripe_subscription_id||'',agent_limit:ent.agent_limit,lead_limit:ent.lead_limit,entitlement_synced_at:ent.updated_at});
+    }
     const { data } = await sb.from('master_accounts').select('plan_key,plan_status,plan_expires_at,stripe_customer_id,stripe_subscription_id,email_verified,referral_code,referral_credits,logo_url,accent_color').eq('email', session().email.toLowerCase()).single();
-    if (!data?.plan_key) return;
+    if (!data?.plan_key) {renderBrand();renderStats();return;}
     saveBilling({
       plan_key:data.plan_key, status:data.plan_status||'active',
       period_end:data.plan_expires_at?.slice(0,10)||'',
@@ -81,26 +128,43 @@ async function syncBillingFromSupabase() {
 // ── Offline Queue ─────────────────────────────────────────────────────────────
 let offlineQueue = [];
 try { offlineQueue = JSON.parse(localStorage.getItem(QUEUE_KEY)) || []; } catch(e) {}
-function saveQueue() { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(offlineQueue)); } catch(e) {} }
-function queueLead(l) {
-  const i = offlineQueue.findIndex(x => x.id === l.id);
-  if (i >= 0) offlineQueue[i] = l; else offlineQueue.push(l);
+function saveQueue() { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(offlineQueue)); } catch(e) {} updateOfflineUI(); }
+function queueLead(l,error='') {
+  if(!l?.id)return;
+  markLeadSync(l,'queued',error);
+  const item={type:'upsert',id:l.id,lead:{...l},attempts:0,queued_at:new Date().toISOString(),last_error:String(error||'')};
+  const i = offlineQueue.findIndex(x => (x.id||x.lead?.id) === l.id);
+  if (i >= 0) offlineQueue[i] = {...item,attempts:(offlineQueue[i].attempts||0)}; else offlineQueue.push(item);
   saveQueue(); setSyncDot('busy');
   const dot = document.getElementById('syncDot');
   if (dot) dot.title = offlineQueue.length + ' changes queued';
 }
+function queueDelete(id,error=''){
+  if(!id)return;const item={type:'delete',id,attempts:0,queued_at:new Date().toISOString(),last_error:String(error||'')};
+  const i=offlineQueue.findIndex(x=>x.id===id);if(i>=0)offlineQueue[i]=item;else offlineQueue.push(item);saveQueue();setSyncDot('busy');
+}
 async function flushQueue() {
-  if (!sb || !session().team_id || !offlineQueue.length) return;
+  if (!sb || !session().team_id || !offlineQueue.length || !navigator.onLine) { updateOfflineUI(); return; }
   setSyncDot('busy');
   const q = [...offlineQueue]; offlineQueue = []; saveQueue();
   const failed = [];
-  for (const l of q) {
-    try { await sb.from('leads').upsert(localToRemote(l), { onConflict:'local_id' }); }
-    catch(e) { failed.push(l); }
+  const deletes=q.filter(x=>x.type==='delete'),upserts=q.filter(x=>x.type!=='delete');
+  for(let i=0;i<upserts.length;i+=100){
+    const batch=upserts.slice(i,i+100);
+    try {
+      const {error}=await sb.from('leads').upsert(batch.map(x=>localToRemote(x.lead||x)),{onConflict:'local_id'});
+      if(error)throw error;batch.forEach(x=>markLeadSync(state.leads.find(l=>l.id===x.id),'synced'));
+    }
+    catch(e){batch.forEach(x=>failed.push({...x,attempts:(x.attempts||0)+1,last_error:e.message||String(e)}));}
+  }
+  for(const item of deletes){
+    try{const {error}=await sb.from('leads').delete().eq('local_id',item.id).eq('team_id',session().team_id);if(error)throw error;}
+    catch(e){failed.push({...item,attempts:(item.attempts||0)+1,last_error:e.message||String(e)});}
   }
   offlineQueue = failed; saveQueue();
-  if (!failed.length) { toast('✓ ' + q.length + ' queued changes synced'); setSyncDot('ok'); }
-  else setSyncDot('err');
+  saveState();
+  if (!failed.length) { toast('✓ ' + q.length + ' offline change' + (q.length===1?'':'s') + ' synced'); setSyncDot('ok'); }
+  else {toast(`${failed.length} change${failed.length===1?'':'s'} still waiting`);setSyncDot('err');logHealth('warning','offline_queue',`${failed.length} changes failed to sync`,{failed:failed.length});}
 }
 
 // ── Upsert Helpers ────────────────────────────────────────────────────────────
@@ -111,8 +175,12 @@ async function upsertLead(l) {
   if (!navigator.onLine) { queueLead(l); return; }
   const row = localToRemote(l);
   if (!row.local_id || !row.team_id) return;
-  try { await sb.from('leads').upsert(row, { onConflict:'local_id' }); }
-  catch(e) { queueLead(l); console.warn('Queued:', e); }
+  markLeadSync(l,'syncing'); setSyncDot('busy');
+  try {
+    const { error }=await sb.from('leads').upsert(row, { onConflict:'local_id' });
+    if(error)throw error; markLeadSync(l,'synced'); saveState(); setSyncDot('ok');
+  }
+  catch(e) { queueLead(l,e.message||e); console.warn('Queued:', e); logHealth('warning','lead_upsert',e.message||String(e),{lead_id:l.id}); }
 }
 async function upsertBatch(leads) {
   if (!sb) return;
@@ -120,28 +188,40 @@ async function upsertBatch(leads) {
   if (!tid || !navigator.onLine) return;
   const rows = leads.map(localToRemote).filter(r => r.local_id && r.team_id);
   for (let i = 0; i < rows.length; i += 200) {
-    try { await sb.from('leads').upsert(rows.slice(i, i+200), { onConflict:'local_id' }); }
-    catch(e) { console.warn('Batch:', e); }
+    const batch=rows.slice(i,i+200);
+    try {
+      const { error }=await sb.from('leads').upsert(batch, { onConflict:'local_id' });
+      if(error)throw error; batch.forEach(r=>markLeadSync(state.leads.find(l=>l.id===r.local_id),'synced'));
+    }
+    catch(e) { batch.forEach(r=>{const l=state.leads.find(x=>x.id===r.local_id);if(l)queueLead(l,e.message||e);}); console.warn('Batch:', e); }
   }
 }
 async function deleteLeadRemote(id) {
   if (!sb) return;
   const tid = session().team_id;
   if (!tid) return;
-  try { await sb.from('leads').delete().eq('local_id', id).eq('team_id', tid); }
-  catch(e) { console.warn('Del:', e); }
+  if(!navigator.onLine){queueDelete(id);return;}
+  try { const { error }=await sb.from('leads').delete().eq('local_id', id).eq('team_id', tid); if(error)throw error; }
+  catch(e) { queueDelete(id,e.message||e);console.warn('Del queued:', e); }
 }
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
+let leadRealtimeChannel=null, locationRealtimeChannel=null;
 function initRealtime() {
   if (!sb || !session().team_id) return;
-  sb.channel('leads-' + session().team_id)
+  if(leadRealtimeChannel)sb.removeChannel(leadRealtimeChannel);
+  leadRealtimeChannel=sb.channel('leads-' + session().team_id)
     .on('postgres_changes', { event:'*', schema:'public', table:'leads', filter:`team_id=eq.${session().team_id}` }, p => {
-      if (!p.new?.local_id) return;
-      const l = remoteToLocal(p.new), idx = state.leads.findIndex(x => x.id === l.id);
+      const row=p.eventType==='DELETE'?p.old:p.new;
+      if (!row?.local_id) { if(p.eventType==='DELETE')syncFromSupabase(); return; }
+      const l = remoteToLocal(row), idx = state.leads.findIndex(x => x.id === l.id);
       if (p.eventType === 'DELETE') state.leads = state.leads.filter(x => x.id !== l.id);
-      else if (idx >= 0) state.leads[idx] = l;
-      else state.leads.push(l);
+      else if (idx >= 0) {
+        const local=state.leads[idx];
+        if(syncTime(local)>syncTime(l)&&local._sync_status!=='synced')queueLead(local,'Realtime conflict: local edit retained');
+        else {markLeadSync(l,'synced');state.leads[idx]=l;}
+      }
+      else {markLeadSync(l,'synced');state.leads.push(l);}
       saveState(); renderAll(); setSyncDot('ok');
       if (session().role === 'master' && p.new && p.new.status && p.new.assigned_agent && p.new.assigned_agent !== agentName() && Notification.permission === 'granted') {
         new Notification('BlockBoss CRM — Rep Update', {
@@ -172,19 +252,21 @@ async function broadcastLoc() {
   if (!sb || !session().team_id) return;
   navigator.geolocation?.getCurrentPosition(async p => {
     try {
-      await sb.from('agent_locations').upsert({
+      const { error }=await sb.from('agent_locations').upsert({
         team_id:session().team_id, agent_name:agentName(),
         agent_email:session().email||agentName()+'@team',
         lat:p.coords.latitude, lng:p.coords.longitude, accuracy:p.coords.accuracy,
         updated_at:new Date().toISOString()
       }, { onConflict:'team_id,agent_email' });
-    } catch(e) {}
+      if(error)throw error;
+    } catch(e) { setSyncDot('err'); }
   }, null, { enableHighAccuracy:true, timeout:8000 });
 }
 function subscribeLocations() {
   if (!sb || !session().team_id) return;
   sb.from('agent_locations').select('*').eq('team_id', session().team_id).then(({ data }) => { (data||[]).forEach(renderAgentDot); });
-  sb.channel('locs-' + session().team_id)
+  if(locationRealtimeChannel)sb.removeChannel(locationRealtimeChannel);
+  locationRealtimeChannel=sb.channel('locs-' + session().team_id)
     .on('postgres_changes', { event:'*', schema:'public', table:'agent_locations', filter:`team_id=eq.${session().team_id}` }, p => { if (p.new) renderAgentDot(p.new); })
     .subscribe();
 }

@@ -7,8 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="theme-color" content="#0d1117" />
 <title>BlockBoss CRM — Original Stack Restored</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css" />
+<link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css" />
+<link rel="stylesheet" href="styles.css?v=18-production-hardening" />
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="BlockBoss CRM">
 <meta name="mobile-web-app-capable" content="yes">
@@ -26,7 +28,6 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
   <div class="title"><b id="brandTitle">BlockBoss CRM</b><span id="sessionLine">Original stack restored · Solar + HVAC + Field Team</span></div>
   <div class="top-actions">
     <div id="syncDot" class="sync-dot" title="Sync status"></div>
-    <button class="pill-btn" id="sunToggle" title="Enable Sun Mode">☀️</button>
     <button class="pill-btn hide-sm" id="openLaunch">🚀 Launch</button>
     <button class="pill-btn blue" id="openLogin">Login</button>
     <button class="pill-btn gold" id="exportTop">Backup</button>
@@ -35,6 +36,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 <main class="main">
   <div id="map"></div>
   <button class="filter-toggle" id="filterToggle">Filter: All ▾</button>
+  <button class="search-toggle" id="openLeadSearch" aria-label="Search leads">🔎 Search</button>
   <div class="filter-bar" id="filterBar"></div>
   <div class="progress" id="progress"><div class="ttl" id="progTitle">Loading…</div><div class="sub" id="progSub">Starting</div><div class="track"><div class="fill" id="progFill"></div></div><button class="save-btn secondary" id="cancelLoad">Cancel</button></div>
   <div class="field-dock">
@@ -45,13 +47,18 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
         <div class="field-grid">
           <button class="gold" data-tool="today">⚡ Today Mode</button>
           <button class="green" data-tool="next">🎯 Next Best</button>
+          <button class="green" data-tool="nextDoor">🏠 Next Door</button>
+          <button class="gold" data-tool="blockWalk">🚶 Block Walk</button>
+          <button class="purple" data-tool="territoryProgress">📊 Progress</button>
           <button class="blue" data-tool="locate">📍 Locate Me</button>
           <button data-tool="satellite">🛰️ Satellite</button>
+          <button class="blue" data-tool="parcels">▱ Parcels</button>
           <button class="blue" data-tool="route">🗺️ Route Opt</button>
           <button data-tool="fit">🗺️ Fit Leads</button>
           <button class="purple" data-tool="add">➕ Add Lead</button>
           <button class="green" data-tool="loadArea">⬇ Load Area</button>
           <button data-tool="neighborhoods">📍 Hoods</button>
+          <button class="blue" data-tool="offlineAreas">📥 Offline Areas</button>
           <button class="gold" data-tool="livetrack">📡 Live Track</button>
           <button data-tool="clearroute">❌ Clear Route</button>
         </div>
@@ -60,6 +67,7 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
     <button class="next-best-pill" id="nextBestPill">🎯 Next Best</button>
   </div>
   <div class="info-tag" id="infoTag">Live map is always on. Use Field Tools → Load Area for NYC PLUTO-style homeowner pins.</div>
+  <div class="parcel-legend" id="parcelLegend"><span><i class="fresh"></i>Untouched</span><span><i class="worked"></i>Worked</span><span><i class="closed"></i>Closed</span><span><i class="dnk"></i>DNK</span></div>
   <section class="panel-view" id="listView"><div id="listContainer"></div></section>
   <section class="panel-view" id="statsView"></section>
 </main>
@@ -70,28 +78,35 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 </nav>
 </div>
 
+<div class="offline-bar" id="offlineBar" role="status" aria-live="polite">
+  <span class="offline-ico">☁</span><span id="offlineText">Offline field mode</span>
+  <button id="retrySync" type="button">Sync</button>
+</div>
+
 <div class="sheet" id="sheet"><div class="sheet-handle" id="sheetHandle"></div><div class="sheet-header"><div class="info"><h2 id="shName">—</h2><div class="addr" id="shAddr">—</div></div><button class="sheet-close" id="closeSheet">×</button></div><div class="sheet-body" id="sheetBody"></div></div>
 <div class="login-overlay" id="loginOverlay"></div>
 <div class="modal" id="modal"></div>
 <div class="toast" id="toast"></div>
 
 <!-- CDN dependencies -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
+<script src="vendor/supabase/supabase.js"></script>
 
 <!-- App modules — load order matters: each file depends on symbols from prior files -->
-<script src="js/config.js"></script>
-<script src="js/state.js"></script>
-<script src="js/leads.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/map.js"></script>
-<script src="js/render.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/sms.js"></script>
-<script src="js/actions.js"></script>
-<script src="js/app.js"></script>
-<!-- Additive feature modules — safe to append, no existing code modified -->
+<script src="js/config.js?v=18-production-hardening"></script>
+<script src="js/state.js?v=18-production-hardening"></script>
+<script src="js/storage.js?v=18-production-hardening"></script>
+<script src="js/leads.js?v=18-production-hardening"></script>
+<script src="js/sync.js?v=18-production-hardening"></script>
+<script src="js/map.js?v=18-production-hardening"></script>
+<script src="js/render.js?v=18-production-hardening"></script>
+<script src="js/ui.js?v=18-production-hardening"></script>
+<script src="js/auth.js?v=18-production-hardening"></script>
+<script src="js/sms.js?v=18-production-hardening"></script>
+<script src="js/actions.js?v=18-production-hardening"></script>
+<script src="js/app.js?v=18-production-hardening"></script>
+<!-- Additive feature modules -->
 <script src="js/sunmode.js"></script>
 <script src="js/fatdisp.js"></script>
 <script src="js/hitfeed.js"></script>
