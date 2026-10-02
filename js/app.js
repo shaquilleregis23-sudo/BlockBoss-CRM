@@ -220,3 +220,45 @@ window.addEventListener('appinstalled', function() {
     try { if (navigator.vibrate) navigator.vibrate(12); } catch(err) {}
   }, true);
 })();
+
+// ── Self-healing upgrades ─────────────────────────────────────────────────────
+// A PWA that ships a new build can leave a phone running the OLD service worker
+// with a half-stale cache — old JS against new HTML, which shows up as a black
+// map and dead taps. On a version change we purge caches, drop old workers and
+// reload exactly once (sessionStorage guards against a reload loop).
+(function(){
+  var BUILD = 'v23-selfheal';
+  var KEY = 'bb_build', GUARD = 'bb_healed';
+  try {
+    var prev = localStorage.getItem(KEY);
+    if (prev === BUILD) return;                       // already on this build
+    if (!prev) { localStorage.setItem(KEY, BUILD); return; }  // first ever run
+    if (sessionStorage.getItem(GUARD) === BUILD) {    // healed already this session
+      localStorage.setItem(KEY, BUILD); return;
+    }
+    sessionStorage.setItem(GUARD, BUILD);
+    Promise.resolve()
+      .then(function(){ return window.caches ? caches.keys().then(function(ks){
+        return Promise.all(ks.map(function(k){ return caches.delete(k); })); }) : null; })
+      .then(function(){ return navigator.serviceWorker ?
+        navigator.serviceWorker.getRegistrations().then(function(rs){
+          return Promise.all(rs.map(function(r){ return r.unregister(); })); }) : null; })
+      .catch(function(){})
+      .then(function(){ localStorage.setItem(KEY, BUILD); location.reload(); });
+  } catch(e) {}
+})();
+
+// Escape hatch: <url>?reset=1 force-clears everything on any device.
+(function(){
+  try{
+    if(new URLSearchParams(location.search).get('reset')!=='1') return;
+    Promise.resolve()
+      .then(function(){ return window.caches ? caches.keys().then(function(ks){
+        return Promise.all(ks.map(function(k){ return caches.delete(k); })); }) : null; })
+      .then(function(){ return navigator.serviceWorker ?
+        navigator.serviceWorker.getRegistrations().then(function(rs){
+          return Promise.all(rs.map(function(r){ return r.unregister(); })); }) : null; })
+      .catch(function(){})
+      .then(function(){ location.replace(location.pathname); });
+  }catch(e){}
+})();
