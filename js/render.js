@@ -99,6 +99,99 @@ function renderContact() {
   return `<div class="metric-grid"><div class="metric"><div class="k">Name</div><div class="v" style="font-size:14px">${esc(c.name||'')}</div></div><div class="metric"><div class="k">Email</div><div class="v" style="font-size:12px">${esc(c.email||'')}</div></div><div class="metric"><div class="k">Phone</div><div class="v" style="font-size:14px">${esc(c.phone||'')}</div></div><div class="metric"><div class="k">CTA</div><div class="v" style="font-size:12px">${esc(c.cta||'')}</div></div></div>`;
 }
 
+// ── Daily Activity Tracker ────────────────────────────────────────────────────
+// Per-rep daily activity, built from each lead's activity_log (addLog writes one
+// entry per disposition tap), so it reflects real work done — not just a lead's
+// current status the way the leaderboard snapshot does.
+const ACT_COLS = [
+  ['knocked','✊','Knocks'], ['not_home','🚪','Not Home'], ['interested','🔥','Hot'],
+  ['callback','📞','Callbacks'], ['set','🎯','Appts'], ['sat','🪑','Sat'], ['closed','💰','Closed']
+];
+function activityMode() { return window._activityMode || 'today'; }
+function setActivityDay(mode) {
+  window._activityMode = mode;
+  const el = document.getElementById('dailyActivity');
+  if (el) el.innerHTML = dailyActivityHTML();
+}
+function activityInRange(at, mode) {
+  if (!at) return false;
+  const d = new Date(at);
+  if (isNaN(d)) return false;
+  if (mode === 'week') {
+    const cut = new Date(); cut.setDate(cut.getDate() - 6); cut.setHours(0,0,0,0);
+    return d >= cut;
+  }
+  const target = new Date();
+  if (mode === 'yesterday') target.setDate(target.getDate() - 1);
+  return d.toDateString() === target.toDateString();
+}
+function repDailyActivity(mode) {
+  const byRep = {};
+  for (const l of scopedLeads()) {
+    for (const x of (l.activity_log || [])) {
+      if (!activityInRange(x.at, mode)) continue;
+      const rep = x.agent || 'Unassigned';
+      const r = byRep[rep] || (byRep[rep] = { name: rep, total: 0, counts: {}, leadIds: new Set(), first: null, last: null });
+      r.counts[x.type] = (r.counts[x.type] || 0) + 1;
+      r.total++;
+      r.leadIds.add(l.id);
+      const t = new Date(x.at);
+      if (!r.first || t < r.first) r.first = t;
+      if (!r.last || t > r.last) r.last = t;
+    }
+  }
+  return Object.values(byRep).map(r => {
+    r.doors = (r.counts.knocked || 0) + (r.counts.not_home || 0);
+    r.sets = r.counts.set || 0;
+    r.closes = r.counts.closed || 0;
+    r.leads = r.leadIds.size;
+    r.convo = r.doors ? Math.round((r.sets / r.doors) * 100) : 0;
+    return r;
+  }).sort((a, b) => b.doors - a.doors || b.total - a.total);
+}
+function hhmm(d) { return d ? new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '—'; }
+function dailyActivityHTML() {
+  const mode = activityMode();
+  const rows = repDailyActivity(mode);
+  const tabs = [['today','Today'], ['yesterday','Yesterday'], ['week','Last 7 Days']]
+    .map(([m, label]) => `<button class="flow-tab-btn${m === mode ? ' active' : ''}" onclick="setActivityDay('${m}')">${label}</button>`).join('');
+  const head = `<div class="flow-tabs" style="margin-bottom:12px">${tabs}</div>`;
+  if (!rows.length) {
+    return head + `<p class="sub">No activity logged ${mode === 'week' ? 'in the last 7 days' : mode === 'yesterday' ? 'yesterday' : 'today'} yet. Every disposition a rep taps shows up here automatically.</p>`;
+  }
+  const team = rows.reduce((a, r) => {
+    a.doors += r.doors; a.sets += r.sets; a.closes += r.closes; a.total += r.total; return a;
+  }, { doors: 0, sets: 0, closes: 0, total: 0 });
+  const teamConvo = team.doors ? Math.round((team.sets / team.doors) * 100) : 0;
+  const topDoors = Math.max(...rows.map(r => r.doors), 1);
+  const medals = ['🥇','🥈','🥉'];
+
+  const teamRow = `<div class="metric-grid" style="margin-bottom:12px">
+<div class="metric"><div class="k">Reps Active</div><div class="v">${rows.length}</div></div>
+<div class="metric"><div class="k">Doors</div><div class="v">${team.doors}</div></div>
+<div class="metric"><div class="k">Appts</div><div class="v">${team.sets}</div></div>
+<div class="metric"><div class="k">Closed</div><div class="v">${team.closes}</div></div>
+<div class="metric"><div class="k">Door→Appt</div><div class="v">${teamConvo}%</div></div>
+<div class="metric"><div class="k">Actions</div><div class="v">${team.total}</div></div>
+</div>`;
+
+  const repRows = rows.map((r, i) => {
+    const chips = ACT_COLS.filter(([k]) => r.counts[k])
+      .map(([k, ico, label]) => `<span class="act-chip" title="${label}">${ico} ${r.counts[k]}</span>`).join('');
+    return `<div class="act-rep">
+<div class="act-rep-top">
+  <div class="act-rep-name">${medals[i] || '#' + (i + 1)} ${esc(r.name)}</div>
+  <div class="act-rep-doors"><b>${r.doors}</b> doors</div>
+</div>
+<div class="act-bar-wrap"><div class="act-bar" style="width:${Math.round((r.doors / topDoors) * 100)}%"></div></div>
+<div class="act-chips">${chips || '<span class="act-chip">no dispositions</span>'}</div>
+<div class="act-meta">🕒 ${hhmm(r.first)} – ${hhmm(r.last)} · ${r.leads} lead${r.leads === 1 ? '' : 's'} touched · ${r.convo}% door→appt</div>
+</div>`;
+  }).join('');
+
+  return head + teamRow + repRows;
+}
+
 function renderStats() {
   const s = document.getElementById('statsView'), leads = scopedLeads(), today = todayLeads();
   const hot = leads.filter(l => leadQuality(l) >= 70), due = leads.filter(isDue);
@@ -128,6 +221,7 @@ ${activationCardHTML()}
 <div class="card"><h3>📊 CRM Command Center</h3><p class="sub">Original stack restored: map, PLUTO owner pins, master login, rep mode, customer accounts, beta launch tools, big icon dispositions.</p><div class="metric-grid">
 <div class="metric"><div class="k">Leads</div><div class="v">${leads.length}</div></div><div class="metric"><div class="k">Hot</div><div class="v">${hot.length}</div></div><div class="metric"><div class="k">Today Doors</div><div class="v">${today.filter(l=>['knocked','not_home','interested','callback','set','sat','closed'].includes(l.status)).length}</div></div><div class="metric"><div class="k">Follow-ups</div><div class="v">${due.length}</div></div></div><div class="action-grid"><button class="green" data-action="repMode">🚶 Rep Mode</button><button class="gold" data-action="nextBest">🎯 Next Best</button><button class="blue" data-action="openFollowups">📅 Follow-Ups</button><button class="blue" data-action="territoryProgress">📊 Territory Progress</button><button class="purple" data-action="enablePush">${localStorage.getItem('m2_push_enabled')?'✓ Push Alerts':'🔔 Enable Push'}</button>${isMaster()?'<button class="purple" data-action="managerAudit">🛡️ Manager Audit</button><button class="gold" data-action="duplicateManager">🧬 Merge Duplicates</button><button class="blue" data-action="healthDashboard">🩺 Production Health</button>':''}<button class="blue" data-action="openLaunch">🚀 Launch Screen</button><button data-action="toggleSales">🎬 Sales Demo</button></div></div>
 <div class="card"><h3>🏆 Today's Leaderboard</h3><p class="sub">Doors knocked · Sets · Closes per rep today.</p><div id="lbContent"><p class="sub">Loading…</p></div></div>
+<div class="card" style="border-color:rgba(249,199,79,.35)"><h3>📅 Daily Activity Tracker</h3><p class="sub">Every knock, callback, appointment and close each rep logged — by day.</p><div id="dailyActivity">${dailyActivityHTML()}</div></div>
 <div class="card" style="border-color:rgba(161,113,247,.3)"><h3>📋 Closer Board</h3><p class="sub">All appointments set — sorted by time. Send to your closer before each sit.</p>${closerBoard}</div>
 <div class="card"><h3>📊 Conversion Funnel</h3><p class="sub">Pipeline breakdown across all loaded leads.</p>${funnelHTML(leads)}</div>
 <div class="card"><h3>🔐 Account Access</h3><p class="sub">Master / manager / agent login. Agents only see assigned leads when logged in as agent.</p><div class="metric-grid"><div class="metric"><div class="k">Session</div><div class="v" style="font-size:15px">${esc(session().role||'master')}</div></div><div class="metric"><div class="k">User</div><div class="v" style="font-size:15px">${esc(agentName())}</div></div><div class="metric"><div class="k">Agents</div><div class="v">${(acc.agents||[]).length}</div></div><div class="metric"><div class="k">Assigned</div><div class="v">${leads.filter(l=>l.assigned_agent||l.assigned_user_email).length}</div></div></div><div class="action-grid"><button class="blue" data-action="openLogin">Open Login</button><button class="green" data-action="openAgentSetup">Create Agent Login</button><button class="gold" data-action="assignVisible">Assign Visible Leads</button><button class="purple" data-action="openSMSBlast">📱 SMS Blast</button><button data-action="logout">Log Out / Switch</button></div>${renderAgents(acc.agents||[])}</div>
@@ -171,6 +265,9 @@ function renderList() {
 function renderAll() { renderBrand(); renderFilter(); renderMarkers(); renderList(); renderStats(); }
 function switchView(v) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  // Map-only chrome (filter pill, search, field tools, leaflet controls) sits above
+  // the panel views, so it has to be hidden when Leads/Stats are open.
+  document.querySelector('.main').classList.toggle('panel-open', v !== 'map');
   document.getElementById('listView').classList.toggle('open', v === 'list');
   document.getElementById('statsView').classList.toggle('open', v === 'stats');
   if (v === 'list') renderList();

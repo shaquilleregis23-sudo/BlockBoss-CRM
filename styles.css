@@ -179,3 +179,25 @@ body.sun-mode .lead-item,body.sun-mode .mini-item,body.sun-mode .agent-row,body.
 .voice-btn .v-ico{font-size:20px;line-height:1}
 .voice-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#f85149;animation:vpulse .65s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes vpulse{0%{opacity:.25;transform:scale(.6)}100%{opacity:1;transform:scale(1.25)}}
+
+/* ── Daily Activity Tracker ─────────────────────────────────────────────── */
+.flow-tab-btn{border:1px solid var(--border);background:#161b22;color:#c9d1d9;border-radius:12px;padding:10px 7px;font-weight:1000;font-size:12px}
+.flow-tab-btn.active{background:var(--accent);color:white;border-color:var(--blue)}
+.act-rep{border:1px solid var(--border);background:var(--panel2);border-radius:14px;padding:11px 12px;margin-bottom:8px}
+.act-rep-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.act-rep-name{font-size:13px;font-weight:1000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-rep-doors{font-size:12px;color:var(--muted);flex-shrink:0}
+.act-rep-doors b{color:var(--gold);font-size:15px}
+.act-bar-wrap{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0}
+.act-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--cyan));transition:width .4s}
+.act-chips{display:flex;flex-wrap:wrap;gap:5px}
+.act-chip{font-size:10px;font-weight:900;padding:4px 8px;border-radius:999px;background:#21262d;border:1px solid var(--border);color:var(--text)}
+.act-meta{font-size:10px;color:var(--muted);margin-top:7px}
+/* Hide map-only overlay chrome while the Leads/Stats panels are open */
+.main.panel-open .filter-toggle,
+.main.panel-open .search-toggle,
+.main.panel-open .filter-bar,
+.main.panel-open .field-dock,
+.main.panel-open .info-tag,
+.main.panel-open .parcel-legend,
+.main.panel-open .leaflet-control-container{display:none!important}

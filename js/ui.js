@@ -40,7 +40,13 @@ ${l.acris_owner_names?.length?`<details class="clean" open><summary>📜 ACRIS D
     const el = document.getElementById(id);
     if (el) el.value = { fCredit:l.credit||'unknown', fSolar:l.solar_status||'unknown', fHeat:l.heating_type||'unknown', fOutcome:l.appt_outcome||'none' }[id];
   });
-  document.getElementById('sheet').classList.add('open');
+  const _sheetEl = document.getElementById('sheet');
+  _sheetEl.classList.add('open');
+  // Always open the lead form at the top. Without this the sheet keeps the
+  // scroll position from the previously opened lead, so the rep lands in the
+  // middle of the form and has to scroll back up to see the name/address.
+  _sheetEl.scrollTop = 0;
+  requestAnimationFrame(() => { _sheetEl.scrollTop = 0; });
 }
 function closeSheet() { document.getElementById('sheet').classList.remove('open'); currentLeadId = null; renderMarkers(); }
 
