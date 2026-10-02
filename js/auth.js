@@ -187,12 +187,12 @@ async function doLogin() {
   const a = account();
   if (role === 'master') {
     if (a.master_pin && pin === a.master_pin && (!a.master_email || !email || email === String(a.master_email).toLowerCase())) {
-      saveSession({ role:'master', name:a.master_name||'Shaquille', email:a.master_email||email });
+      saveSession({ role:'master', name:a.master_name||'Owner', email:a.master_email||email });
       document.getElementById('loginOverlay').classList.remove('open');
       toast('✓ Logged in (local)'); setSyncDot('err'); return;
     }
     if (confirm('Master not found. Recover this browser as Master with the email/PIN entered? Only do this if you are the owner.')) {
-      a.master_name = a.master_name || 'Shaquille'; a.master_email = email; a.master_pin = pin || '1234';
+      a.master_name = a.master_name || 'Owner'; a.master_email = email; a.master_pin = pin || '1234';
       saveAccount(a); saveSession({ role:'master', name:a.master_name, email });
       document.getElementById('loginOverlay').classList.remove('open');
       toast('✓ Master recovered'); return;

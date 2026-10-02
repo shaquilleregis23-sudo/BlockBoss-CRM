@@ -28,25 +28,25 @@ let lastWorkedLeadId = localStorage.getItem('m2_last_worked_lead') || '';
 
 // ── localStorage Helpers ──────────────────────────────────────────────────────
 function settings() {
-  try { return JSON.parse(localStorage.getItem(SETTINGS)) || { company:'BlockBoss CRM', agent_name:'Shaquille', territory:'Queens / Long Island', door_goal:25, appt_goal:2, plan:'Growth', include_llc:true, allow_verify:true }; }
+  try { return JSON.parse(localStorage.getItem(SETTINGS)) || { company:'BlockBoss CRM', agent_name:'You', territory:'Queens / Long Island', door_goal:25, appt_goal:2, plan:'Growth', include_llc:true, allow_verify:true }; }
   catch(e) { return {}; }
 }
 function saveSettings(s) { localStorage.setItem(SETTINGS, JSON.stringify({ ...settings(), ...s })); renderBrand(); }
 
 function account() {
-  try { return JSON.parse(localStorage.getItem(ACCOUNT)) || { master_name:'Shaquille', master_email:'', master_pin:'', agents:[] }; }
+  try { return JSON.parse(localStorage.getItem(ACCOUNT)) || { master_name:'Owner', master_email:'', master_pin:'', agents:[] }; }
   catch(e) { return { agents:[] }; }
 }
 function saveAccount(a) { localStorage.setItem(ACCOUNT, JSON.stringify(a)); }
 
 function session() {
-  try { return JSON.parse(localStorage.getItem(SESSION)) || { role:'master', name: settings().agent_name || 'Shaquille' }; }
-  catch(e) { return { role:'master', name:'Shaquille' }; }
+  try { return JSON.parse(localStorage.getItem(SESSION)) || { role:'master', name: settings().agent_name || 'You' }; }
+  catch(e) { return { role:'master', name:'You' }; }
 }
 function saveSession(s) { localStorage.setItem(SESSION, JSON.stringify(s)); renderBrand(); renderAll(); }
 
 function contact() {
-  try { return JSON.parse(localStorage.getItem(CONTACT)) || { name:'Shaquille Regis', email:'shaquilleregis23@gmail.com', phone:'', booking:'', cta:'DM CRM for a demo' }; }
+  try { return JSON.parse(localStorage.getItem(CONTACT)) || { name:'', email:'', phone:'', booking:'', cta:'DM CRM for a demo' }; }
   catch(e) { return {}; }
 }
 function saveContact(c) { localStorage.setItem(CONTACT, JSON.stringify(c)); }
@@ -82,7 +82,10 @@ function leadCapacity(additional=0) {
 // ── Session Helpers ───────────────────────────────────────────────────────────
 function role() { return session().role || 'master'; }
 function isMaster() { return role() !== 'agent'; }
-function agentName() { return session().name || settings().agent_name || 'Shaquille'; }
+// Vendor (BlockBoss owner) tools are hidden from every customer by default.
+// Enable on your own device with ?vendor=1 , disable with ?vendor=0 .
+function isVendor() { try { return localStorage.getItem('bb_vendor') === '1'; } catch(e) { return false; } }
+function agentName() { return session().name || settings().agent_name || 'You'; }
 
 // ── Utility Helpers ───────────────────────────────────────────────────────────
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

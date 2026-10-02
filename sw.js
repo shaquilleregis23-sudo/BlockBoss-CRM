@@ -1,4 +1,4 @@
-const CACHE = 'm2-hybrid-production-v19-activity-tracker';
+const CACHE = 'blockboss-v21-nyc-polish';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',

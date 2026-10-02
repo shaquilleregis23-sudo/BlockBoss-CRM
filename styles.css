@@ -201,3 +201,41 @@ body.sun-mode .lead-item,body.sun-mode .mini-item,body.sun-mode .agent-row,body.
 .main.panel-open .info-tag,
 .main.panel-open .parcel-legend,
 .main.panel-open .leaflet-control-container{display:none!important}
+/* Vendor-only tooling: visible only on the BlockBoss owner's own device */
+.vendor-only{display:none!important}
+body.vendor-on .vendor-only{display:block!important}
+
+/* ── UI smoothness pass ─────────────────────────────────────────────────────
+   Goal: everything that moves is GPU-composited, nothing janks mid-gesture,
+   and long lead lists stay at 60fps on a mid-range phone. */
+
+/* Promote the animated surfaces so transforms never trigger layout/paint */
+.sheet,.panel-view,.modal-card,.field-menu{will-change:transform;backface-visibility:hidden}
+.sheet,.panel-view{transform:translateZ(0)}
+
+/* Snappier, more natural easing than the default ease */
+.sheet{transition:transform .26s cubic-bezier(.22,1,.36,1),opacity .18s ease}
+.panel-view{transition:transform .24s cubic-bezier(.22,1,.36,1)}
+.modal-card{animation:bbRise .22s cubic-bezier(.22,1,.36,1)}
+@keyframes bbRise{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+
+/* Long lead lists: skip rendering work for off-screen cards */
+#listContainer>.card,#listContainer>.lead-card{content-visibility:auto;contain-intrinsic-size:132px}
+
+/* Momentum + no scroll chaining anywhere that scrolls */
+.sheet,.panel-view,.modal-card,.field-menu{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+/* Crisper press feedback — faster than the global .97 so taps feel instant */
+.qd-btn:active{transform:scale(.95);transition:transform .06s ease}
+.save-btn:active,.nav-btn:active,.pill-btn:active{transform:scale(.97);transition:transform .06s ease}
+.qd-btn,.save-btn,.nav-btn,.pill-btn{transition:transform .14s cubic-bezier(.22,1,.36,1),background .14s ease,border-color .14s ease}
+
+/* Bottom nav: clear active state so reps always know where they are */
+.nav-btn{transition:color .16s ease,opacity .16s ease}
+
+/* Respect the OS setting — motion sickness / accessibility, and it's an App Store ask */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .sheet,.panel-view{transition:none!important}
+}

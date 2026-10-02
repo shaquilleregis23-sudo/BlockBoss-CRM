@@ -152,7 +152,22 @@ function plutoToLead(p) {
 }
 
 // ── PLUTO Loader ──────────────────────────────────────────────────────────────
+// BlockBoss's homeowner-name enrichment is powered by NYC Open Data (PLUTO / HPD /
+// ACRIS), so it only returns pins inside the five boroughs. Outside NYC we say so
+// plainly instead of spinning and returning an empty map.
+const NYC_BOUNDS = { south: 40.47, west: -74.30, north: 40.93, east: -73.68 };
+function insideNYC(bounds) {
+  const [s, w, n, e] = bounds;
+  return !(n < NYC_BOUNDS.south || s > NYC_BOUNDS.north || e < NYC_BOUNDS.west || w > NYC_BOUNDS.east);
+}
 async function loadPlutoBounds(bounds, name = 'this area') {
+  if (!insideNYC(bounds)) {
+    modal('📍 NYC Coverage Only', `<p class="sub" style="line-height:1.55">Homeowner-name pins come from NYC Open Data (PLUTO, HPD and ACRIS), so automatic lead loading works inside the five boroughs — Queens, Brooklyn, the Bronx, Staten Island and Manhattan.</p>
+<p class="sub" style="margin-top:10px;line-height:1.55">You're outside that area right now. You can still work this territory — the map, routing, dispositions, follow-ups and rep tracking all work anywhere:</p>
+<div class="action-grid" style="margin-top:12px"><button class="green" data-tool="add">➕ Add a Lead Manually</button><button class="blue" data-action="closeModal">Back to Map</button></div>
+<p class="sub" style="margin-top:10px">Importing a CSV from Settings also works in any market.</p>`);
+    return;
+  }
   const _capacity=leadCapacity(1);
   if (!_capacity.allowed) {
     upgradeModal(`Load more territory requires a higher lead limit (you're at ${_capacity.used.toLocaleString()}/${_capacity.limit.toLocaleString()})`, null);
@@ -469,7 +484,7 @@ function offlinePlutoUrl(bounds){
 }
 function tileXY(lat,lng,z){const n=2**z;return{x:Math.floor((lng+180)/360*n),y:Math.floor((1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n)};}
 function offlineTiles(bounds){
-  const out=[];for(let z=14;z<=16;z++){const nw=tileXY(bounds[2],bounds[1],z),se=tileXY(bounds[0],bounds[3],z);for(let x=nw.x;x<=se.x;x++)for(let y=nw.y;y<=se.y;y++)out.push(`https://a.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`);}
+  const out=[];for(let z=14;z<=16;z++){const nw=tileXY(bounds[2],bounds[1],z),se=tileXY(bounds[0],bounds[3],z);for(let x=nw.x;x<=se.x;x++)for(let y=nw.y;y<=se.y;y++)out.push(`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}`);}
   if(out.length<=240)return out;const sampled=[];for(let i=0;i<240;i++)sampled.push(out[Math.floor(i*(out.length-1)/239)]);return [...new Set(sampled)];
 }
 async function offlineNeighborhoods(){

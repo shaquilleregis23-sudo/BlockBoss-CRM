@@ -1,8 +1,8 @@
 // ── Leaflet Map Init ──────────────────────────────────────────────────────────
 const map = L.map('map', { zoomControl:false, preferCanvas:true }).setView([40.6815, -73.9301], 12);
-const dark   = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution:'© OpenStreetMap © CARTO', maxZoom:19, subdomains:'abcd' });
+const dark   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri', maxZoom:19 });
 const sat    = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri', maxZoom:19 });
-const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', { attribution:'', maxZoom:19, subdomains:'abcd', opacity:.9 });
+const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { attribution:'', maxZoom:19, opacity:.9 });
 dark.addTo(map);
 L.control.zoom({ position:'bottomright' }).addTo(map);
 const markerLayer = typeof L.markerClusterGroup === 'function'

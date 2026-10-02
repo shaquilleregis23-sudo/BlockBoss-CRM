@@ -176,3 +176,47 @@ window.addEventListener('appinstalled', function() {
   const b = document.getElementById('installBanner');
   if (b) b.remove();
 });
+
+// Vendor tools (BlockBoss owner only) — hidden for every customer by default.
+// Turn on for yourself with ?vendor=1 on the URL; ?vendor=0 turns it off again.
+(function(){
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.has('vendor')) localStorage.setItem('bb_vendor', q.get('vendor')==='1'?'1':'0');
+  }catch(e){}
+  const apply=()=>document.body.classList.toggle('vendor-on', typeof isVendor==='function' && isVendor());
+  if(document.body) apply(); else document.addEventListener('DOMContentLoaded',apply);
+})();
+
+// ── Error monitoring ──────────────────────────────────────────────────────────
+// Routed through PostHog (already loaded) so breakage surfaces without standing up
+// another service. Swap in a Sentry DSN later if you want stack-trace grouping.
+(function(){
+  let sent = 0;
+  const report = (kind, msg, extra) => {
+    if (sent >= 15) return;            // never spam a rep's connection
+    sent++;
+    try {
+      if (window.posthog) posthog.capture('app_error', {
+        kind, message: String(msg || '').slice(0, 300),
+        where: (location.pathname + location.hash).slice(0, 120),
+        online: navigator.onLine, release: 'v21-nyc-polish', ...extra
+      });
+    } catch(e) {}
+  };
+  window.addEventListener('error', e => report('js', e.message, {
+    src: String(e.filename || '').split('/').pop(), line: e.lineno
+  }));
+  window.addEventListener('unhandledrejection', e => report('promise', e.reason && (e.reason.message || e.reason)));
+})();
+
+// ── Haptics ───────────────────────────────────────────────────────────────────
+// A short tick when a rep taps a disposition. Costs nothing, makes the app feel
+// native in the hand instead of like a web page.
+(function(){
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-disp], .qd-btn, .save-btn, .nav-btn');
+    if (!t) return;
+    try { if (navigator.vibrate) navigator.vibrate(12); } catch(err) {}
+  }, true);
+})();
