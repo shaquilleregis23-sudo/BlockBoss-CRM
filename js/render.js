@@ -262,7 +262,16 @@ function renderList() {
 }
 
 // ── App Shell ─────────────────────────────────────────────────────────────────
-function renderAll() { renderBrand(); renderFilter(); renderMarkers(); renderList(); renderStats(); }
+function renderAll() {
+  renderBrand(); renderFilter(); renderMarkers();
+  // Only rebuild the panel the rep is actually looking at. Every disposition tap
+  // used to rebuild the whole Leads list AND all 18 Stats cards (plus an async
+  // leaderboard query) while the rep was on the map — the main source of lag.
+  // switchView() renders each panel on entry, so skipping them here is free.
+  const lv = document.getElementById('listView'), sv = document.getElementById('statsView');
+  if (lv && lv.classList.contains('open')) renderList();
+  if (sv && sv.classList.contains('open')) renderStats();
+}
 function switchView(v) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   // Map-only chrome (filter pill, search, field tools, leaflet controls) sits above

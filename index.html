@@ -10,16 +10,16 @@
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css" />
 <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css" />
-<link rel="stylesheet" href="styles.css?v=21-nyc-polish" />
+<link rel="stylesheet" href="styles.css?v=22-perf" />
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="BlockBoss CRM">
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- PostHog Analytics -->
 <script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.people.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||(window.posthog=[]));
-posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https://us.i.posthog.com',person_profiles:'identified_only',autocapture:true,capture_pageview:true})</script>
+posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https://us.i.posthog.com',person_profiles:'identified_only',capture_pageview:true,autocapture:false,disable_session_recording:true,capture_performance:false,disable_surveys:true,advanced_disable_decide:true})</script>
 <!-- Crisp Chat -->
-<script>window.$crisp=[];window.CRISP_WEBSITE_ID="33d87fa7-6320-4ebf-bf17-3ac16af7668f";(function(){var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s)})();</script>
+<script>window.$crisp=[];window.CRISP_WEBSITE_ID="33d87fa7-6320-4ebf-bf17-3ac16af7668f";(function(){var load=function(){if(window.__crispLoaded)return;window.__crispLoaded=1;var d=document,s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s)};var go=function(){if(!navigator.onLine)return;if("requestIdleCallback" in window)requestIdleCallback(load,{timeout:8000});else setTimeout(load,6000)};if(document.readyState==="complete")go();else window.addEventListener("load",go);})();</script>
 </head>
 <body>
 <div class="app">
@@ -94,18 +94,18 @@ posthog.init('phc_BwWikPWmXABUVyv8Eihc9c4JKk4bkiYWzxJRs5SXqEaY',{api_host:'https
 <script src="vendor/supabase/supabase.js"></script>
 
 <!-- App modules — load order matters: each file depends on symbols from prior files -->
-<script src="js/config.js?v=21-nyc-polish"></script>
-<script src="js/state.js?v=21-nyc-polish"></script>
-<script src="js/storage.js?v=21-nyc-polish"></script>
-<script src="js/leads.js?v=21-nyc-polish"></script>
-<script src="js/sync.js?v=21-nyc-polish"></script>
-<script src="js/map.js?v=21-nyc-polish"></script>
-<script src="js/render.js?v=21-nyc-polish"></script>
-<script src="js/ui.js?v=21-nyc-polish"></script>
-<script src="js/auth.js?v=21-nyc-polish"></script>
-<script src="js/sms.js?v=21-nyc-polish"></script>
-<script src="js/actions.js?v=21-nyc-polish"></script>
-<script src="js/app.js?v=21-nyc-polish"></script>
+<script src="js/config.js?v=22-perf"></script>
+<script src="js/state.js?v=22-perf"></script>
+<script src="js/storage.js?v=22-perf"></script>
+<script src="js/leads.js?v=22-perf"></script>
+<script src="js/sync.js?v=22-perf"></script>
+<script src="js/map.js?v=22-perf"></script>
+<script src="js/render.js?v=22-perf"></script>
+<script src="js/ui.js?v=22-perf"></script>
+<script src="js/auth.js?v=22-perf"></script>
+<script src="js/sms.js?v=22-perf"></script>
+<script src="js/actions.js?v=22-perf"></script>
+<script src="js/app.js?v=22-perf"></script>
 <!-- Additive feature modules -->
 <script src="js/sunmode.js"></script>
 <script src="js/fatdisp.js"></script>

@@ -220,7 +220,7 @@ body.vendor-on .vendor-only{display:block!important}
 @keyframes bbRise{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
 
 /* Long lead lists: skip rendering work for off-screen cards */
-#listContainer>.card,#listContainer>.lead-card{content-visibility:auto;contain-intrinsic-size:132px}
+#listContainer>.lead-item{content-visibility:auto;contain-intrinsic-size:88px}
 
 /* Momentum + no scroll chaining anywhere that scrolls */
 .sheet,.panel-view,.modal-card,.field-menu{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}

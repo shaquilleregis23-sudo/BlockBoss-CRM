@@ -1,4 +1,4 @@
-const CACHE = 'blockboss-v21-nyc-polish';
+const CACHE = 'blockboss-v22-perf';
 const TILE_CACHE = 'm2-map-tiles-v1';
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
