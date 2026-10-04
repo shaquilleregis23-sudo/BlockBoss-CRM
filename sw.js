@@ -1,4 +1,4 @@
-const CACHE = 'blockboss-v23-selfheal';
+const CACHE = 'blockboss-v24-tilefix';
 const TILE_CACHE = 'blockboss-map-tiles-v2';  // bumped: v1 held CARTO tiles from before the Esri switch
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',

@@ -1,5 +1,9 @@
 // ── Leaflet Map Init ──────────────────────────────────────────────────────────
-const map = L.map('map', { zoomControl:false, preferCanvas:true }).setView([40.6815, -73.9301], 12);
+// fadeAnimation:false — Leaflet fades tiles in from opacity:0 via a requestAnimationFrame
+// loop. If rAF is throttled (background tab, Chrome Memory Saver, a frozen/restored
+// tab), that loop never runs and every tile stays at opacity:0 — a fully black map
+// even though the tiles downloaded fine. Drawing them opaque immediately avoids it.
+const map = L.map('map', { zoomControl:false, preferCanvas:true, fadeAnimation:false }).setView([40.6815, -73.9301], 12);
 const dark   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri', maxZoom:19 });
 const sat    = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution:'© Esri', maxZoom:19 });
 const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { attribution:'', maxZoom:19, opacity:.9 });

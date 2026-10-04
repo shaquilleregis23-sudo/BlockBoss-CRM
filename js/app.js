@@ -227,7 +227,7 @@ window.addEventListener('appinstalled', function() {
 // map and dead taps. On a version change we purge caches, drop old workers and
 // reload exactly once (sessionStorage guards against a reload loop).
 (function(){
-  var BUILD = 'v23-selfheal';
+  var BUILD = 'v24-tilefix';
   var KEY = 'bb_build', GUARD = 'bb_healed';
   try {
     var prev = localStorage.getItem(KEY);
@@ -262,3 +262,15 @@ window.addEventListener('appinstalled', function() {
       .then(function(){ location.replace(location.pathname); });
   }catch(e){}
 })();
+
+// ── Tab wake-up ───────────────────────────────────────────────────────────────
+// Chrome can freeze or discard a backgrounded tab. On return the map often has a
+// stale size and half-drawn tiles, which looks like a dead app. Nudge it awake.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState !== 'visible') return;
+  try {
+    if (typeof map === 'undefined' || !map) return;
+    map.invalidateSize();
+    map.eachLayer(function(l){ if (l && typeof l.redraw === 'function' && l._url) l.redraw(); });
+  } catch(e) {}
+});

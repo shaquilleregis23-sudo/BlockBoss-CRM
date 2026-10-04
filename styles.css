@@ -239,3 +239,7 @@ body.vendor-on .vendor-only{display:block!important}
     transition-duration:.01ms!important;scroll-behavior:auto!important}
   .sheet,.panel-view{transition:none!important}
 }
+
+/* Belt-and-braces for the black-map bug: a tile that has finished loading is
+   always painted, even if Leaflet's fade-in rAF loop never got to run. */
+.leaflet-tile-loaded{opacity:1!important}
