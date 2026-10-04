@@ -157,9 +157,12 @@ function showInstallBanner() {
   if (document.getElementById('installBanner')) return;
   var d = document.createElement('div');
   d.id = 'installBanner';
-  d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#161b22;border-top:2px solid rgba(88,166,255,.3);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:99999;box-shadow:0 -4px 24px rgba(0,0,0,.5)';
+  // Sits ABOVE the bottom nav, not on top of it. At bottom:0 / z-index:99999 this
+  // banner covered the Map/Leads/Stats buttons and ate every tap on them.
+  d.style.cssText = 'position:fixed;bottom:calc(62px + env(safe-area-inset-bottom,0px));left:8px;right:8px;background:#161b22;border:1px solid rgba(88,166,255,.3);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;z-index:1250;box-shadow:0 -4px 24px rgba(0,0,0,.5)';
   d.innerHTML = '<div style="flex:1"><b style="font-size:13px">Add BlockBoss CRM to Home Screen</b><br><span style="font-size:11px;color:#8b949e">Works offline · Full screen · Instant access</span></div><button onclick="installApp()" style="background:#238636;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">+ Install</button><button onclick="localStorage.setItem(\'m2_pwa_dismissed\',\'1\');document.getElementById(\'installBanner\').remove()" style="background:transparent;color:#8b949e;border:none;cursor:pointer;font-size:22px;padding:0 4px">×</button>';
   document.body.appendChild(d);
+  setTimeout(function(){ var b=document.getElementById('installBanner'); if(b) b.remove(); }, 20000);
 }
 
 async function installApp() {
@@ -227,7 +230,7 @@ window.addEventListener('appinstalled', function() {
 // map and dead taps. On a version change we purge caches, drop old workers and
 // reload exactly once (sessionStorage guards against a reload loop).
 (function(){
-  var BUILD = 'v24-tilefix';
+  var BUILD = 'v25-usable';
   var KEY = 'bb_build', GUARD = 'bb_healed';
   try {
     var prev = localStorage.getItem(KEY);
@@ -274,3 +277,35 @@ document.addEventListener('visibilitychange', function(){
     map.eachLayer(function(l){ if (l && typeof l.redraw === 'function' && l._url) l.redraw(); });
   } catch(e) {}
 });
+
+// ── Map watchdog ──────────────────────────────────────────────────────────────
+// The map is the product; if it doesn't paint, the app looks dead. Chrome can
+// throttle or freeze a tab (Memory Saver, background, bfcache restore), which
+// leaves Leaflet with a stale size and tiles that never got drawn. Rather than
+// trusting one init pass, re-assert the map a few times early and on every wake.
+(function(){
+  function kick(){
+    try{
+      if (typeof map === 'undefined' || !map) return;
+      map.invalidateSize({ animate:false });
+      var tileLayers = 0;
+      map.eachLayer(function(l){ if (l && l._url && typeof l.redraw === 'function'){ tileLayers++; } });
+      // No tiles in the DOM after the map has had time to settle => force a redraw.
+      if (!document.querySelector('.leaflet-tile')) {
+        map.eachLayer(function(l){ if (l && l._url && typeof l.redraw === 'function') l.redraw(); });
+      }
+      // Any loaded tile left invisible (throttled fade) gets forced opaque.
+      var stuck = document.querySelectorAll('.leaflet-tile-loaded');
+      for (var i=0;i<stuck.length;i++){
+        if (stuck[i].style.opacity === '0' || getComputedStyle(stuck[i]).opacity === '0') stuck[i].style.opacity = '1';
+      }
+    }catch(e){}
+  }
+  [300, 1200, 3000, 6000].forEach(function(ms){ setTimeout(kick, ms); });
+  window.addEventListener('pageshow', kick);       // bfcache restore
+  window.addEventListener('focus', kick);
+  window.addEventListener('online', kick);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') kick();
+  });
+})();
