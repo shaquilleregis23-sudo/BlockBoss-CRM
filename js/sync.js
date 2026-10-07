@@ -109,17 +109,44 @@ async function syncBillingFromSupabase() {
       const {data:ent}=await sb.from('crm_entitlements').select('plan_key,status,agent_limit,lead_limit,period_end,stripe_customer_id,stripe_subscription_id,updated_at').eq('team_id',session().team_id).maybeSingle();
       if(ent?.plan_key)saveBilling({plan_key:ent.plan_key,status:ent.status,period_end:ent.period_end?.slice(0,10)||'',stripe_customer_id:ent.stripe_customer_id||'',stripe_subscription_id:ent.stripe_subscription_id||'',agent_limit:ent.agent_limit,lead_limit:ent.lead_limit,entitlement_synced_at:ent.updated_at});
     }
-    const { data } = await sb.from('master_accounts').select('plan_key,plan_status,plan_expires_at,stripe_customer_id,stripe_subscription_id,email_verified,referral_code,referral_credits,logo_url,accent_color').eq('email', session().email.toLowerCase()).single();
+    // Billing must never fail because an optional column is missing. Postgres fails
+    // the WHOLE select on one unknown column, so the plan would silently never load
+    // and a paying customer would look unpaid. Core columns first, extras best-effort.
+    const CORE = 'plan_key,plan_status,plan_expires_at,stripe_customer_id,stripe_subscription_id';
+    const EXTRA = 'email_verified,referral_code,referral_credits,logo_url,accent_color';
+    let data = null, extra = {};
+    {
+      const full = await sb.from('master_accounts').select(CORE + ',' + EXTRA)
+        .eq('email', session().email.toLowerCase()).single();
+      if (!full.error) {
+        data = full.data; extra = full.data || {};
+      } else {
+        // Most likely an un-migrated column (42703 undefined_column). Fall back to
+        // the columns that always exist so the plan still activates.
+        console.warn('syncBilling: optional columns unavailable —', full.error.message);
+        const core = await sb.from('master_accounts').select(CORE)
+          .eq('email', session().email.toLowerCase()).single();
+        if (core.error) { console.warn('syncBilling core failed:', core.error.message); renderBrand(); renderStats(); return; }
+        data = core.data;
+        // Pull the optional ones one at a time; whichever exist, we use.
+        for (const col of EXTRA.split(',')) {
+          const r = await sb.from('master_accounts').select(col)
+            .eq('email', session().email.toLowerCase()).single();
+          if (!r.error && r.data) extra[col] = r.data[col];
+        }
+      }
+    }
     if (!data?.plan_key) {renderBrand();renderStats();return;}
     saveBilling({
       plan_key:data.plan_key, status:data.plan_status||'active',
       period_end:data.plan_expires_at?.slice(0,10)||'',
       stripe_customer_id:data.stripe_customer_id||'',
       stripe_subscription_id:data.stripe_subscription_id||'',
-      billing_email:session().email, email_verified:data.email_verified!==false,
-      referral_code:data.referral_code||'', referral_credits:data.referral_credits||0,
-      logo_url:data.logo_url||'', accent_color:data.accent_color||''
+      billing_email:session().email, email_verified:extra.email_verified!==false,
+      referral_code:extra.referral_code||'', referral_credits:extra.referral_credits||0,
+      logo_url:extra.logo_url||'', accent_color:extra.accent_color||''
     });
+    data = Object.assign({}, data, extra);
     if (data.email_verified === false) showVerifyBanner();
     renderBrand(); renderStats();
   } catch(e) { console.warn('syncBilling:', e); }

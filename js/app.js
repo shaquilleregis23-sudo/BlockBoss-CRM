@@ -230,7 +230,7 @@ window.addEventListener('appinstalled', function() {
 // map and dead taps. On a version change we purge caches, drop old workers and
 // reload exactly once (sessionStorage guards against a reload loop).
 (function(){
-  var BUILD = 'v25-usable';
+  var BUILD = 'v26-billingfix';
   var KEY = 'bb_build', GUARD = 'bb_healed';
   try {
     var prev = localStorage.getItem(KEY);

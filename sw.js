@@ -1,4 +1,4 @@
-const CACHE = 'blockboss-v25-usable';
+const CACHE = 'blockboss-v26-billingfix';
 const TILE_CACHE = 'blockboss-map-tiles-v2';  // bumped: v1 held CARTO tiles from before the Esri switch
 const CORE = [
   './','./index.html','./styles.css','./manifest.json',
